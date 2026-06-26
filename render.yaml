@@ -3,6 +3,7 @@ services:
   - type: keyvalue
     name: bharat-wines-redis
     plan: starter
+    ipAllowList: []
 
   # Backend FastAPI Web Service
   - type: web
