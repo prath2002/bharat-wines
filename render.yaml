@@ -1,4 +1,9 @@
 services:
+  # Managed Redis Cache/Broker (now uses keyvalue syntax)
+  - type: keyvalue
+    name: bharat-wines-redis
+    plan: starter
+
   # Backend FastAPI Web Service
   - type: web
     name: bharat-wines-backend
@@ -80,8 +85,3 @@ databases:
     databaseName: bharat_wines
     user: postgres
     plan: free # Update to starter/standard in production
-
-  # Managed Redis Cache/Broker (now uses keyvalue syntax)
-  - type: keyvalue
-    name: bharat-wines-redis
-    plan: starter
