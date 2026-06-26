@@ -1,17 +1,18 @@
 services:
-  # Managed Redis Cache/Broker (now uses keyvalue syntax)
+  # Managed Redis Cache/Broker
   - type: keyvalue
     name: bharat-wines-redis
-    plan: starter
+    plan: free
     ipAllowList: []
 
-  # Backend FastAPI Web Service
+  # Backend FastAPI Web Service (Now also runs the Celery Worker)
   - type: web
     name: bharat-wines-backend
     env: python
     rootDir: backend
+    plan: free
     buildCommand: "pip install -r requirements.txt && pip install -e ."
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 10000"
+    startCommand: "bash start.sh"
     envVars:
       - key: APP_ENV
         value: prod
@@ -38,44 +39,3 @@ services:
       # Add placeholder for OPENAI_API_KEY
       - key: OPENAI_API_KEY
         value: placeholder-update-in-dashboard
-
-  # Background Celery Worker
-  - type: worker
-    name: bharat-wines-worker
-    env: python
-    rootDir: backend
-    buildCommand: "pip install -r requirements.txt && pip install -e ."
-    startCommand: "celery -A app.workers.celery_app worker --loglevel=info"
-    envVars:
-      - key: APP_ENV
-        value: prod
-      - key: DATABASE_URL
-        fromService:
-          type: web
-          name: bharat-wines-backend
-          envVarKey: DATABASE_URL
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: bharat-wines-redis
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          type: keyvalue
-          name: bharat-wines-redis
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          type: keyvalue
-          name: bharat-wines-redis
-          property: connectionString
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: bharat-wines-backend
-          envVarKey: JWT_SECRET
-      - key: OPENAI_API_KEY
-        fromService:
-          type: web
-          name: bharat-wines-backend
-          envVarKey: OPENAI_API_KEY
