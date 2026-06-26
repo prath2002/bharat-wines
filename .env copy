@@ -1,0 +1,26 @@
+# Application
+APP_ENV=dev
+
+# Database
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/bharat_wines
+REDIS_URL=redis://localhost:6379/0
+
+# Security
+JWT_SECRET=supersecretkey_change_me_in_production
+JWT_EXPIRY_MINUTES=15
+REFRESH_TOKEN_DAYS=30
+
+# AWS/S3 (For TP uploads)
+S3_BUCKET=bharat-wines-uploads-dev
+AWS_REGION=ap-south-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+
+# AI Providers
+OCR_PROVIDER=textract
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openai/gpt-4o
+
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
