@@ -18,11 +18,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <div className="mx-auto w-full max-w-sm space-y-6 rounded-lg bg-card text-card-foreground p-8 shadow-md border border-border/50">
+    <div className="flex min-h-screen w-full items-center justify-center bg-background">
+      <div className="mx-auto w-full max-w-md space-y-6 rounded-lg border bg-card text-card-foreground p-8 shadow-md">
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Login</h1>
-          <p className="text-gray-500">Enter your email below to login to your account</p>
+          <p className="text-muted-foreground">Enter your email below to login to your account</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

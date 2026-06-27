@@ -36,11 +36,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 py-10">
-      <div className="mx-auto w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-md">
+    <div className="flex min-h-screen w-full items-center justify-center bg-background py-10">
+      <div className="mx-auto w-full max-w-md space-y-6 rounded-lg border bg-card text-card-foreground p-8 shadow-md">
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Register Business</h1>
-          <p className="text-gray-500">Create a new workspace for your store</p>
+          <p className="text-muted-foreground">Create a new workspace for your store</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
