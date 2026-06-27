@@ -11,7 +11,7 @@ from app.services.inventory_service import InventoryService
 from app.integrations.redis import get_redis
 
 REQUIRED_COLUMNS = [
-    "Product Name", "Category", "Size (ml)", "MRP", "SCM Code", "Opening Quantity"
+    "Product Name", "Category", "Size (ml)", "MRP", "Purchase Price", "SCM Code", "Opening Quantity"
 ]
 
 def _parse_file(file_path: str) -> pd.DataFrame:
@@ -45,6 +45,7 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
             category = str(row["Category"]).strip().upper()
             size = float(row["Size (ml)"])
             mrp = float(row["MRP"])
+            purchase_price = float(row["Purchase Price"])
             scm_code = str(row["SCM Code"]).strip()
             qty = int(row["Opening Quantity"])
             case_size = int(row["Case Size"]) if "Case Size" in df.columns and not pd.isna(row["Case Size"]) else None
@@ -61,6 +62,9 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
             if math.isnan(mrp) or mrp <= 0:
                 errors.append({"row": row_num, "error": "MRP must be > 0"})
                 continue
+            if math.isnan(purchase_price) or purchase_price < 0:
+                errors.append({"row": row_num, "error": "Purchase Price cannot be negative"})
+                continue
             if not scm_code or scm_code == 'nan':
                 errors.append({"row": row_num, "error": "SCM Code cannot be empty"})
                 continue
@@ -73,6 +77,7 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
                 "category": category,
                 "size_ml": int(size),
                 "mrp": mrp,
+                "purchase_price": purchase_price,
                 "scm_code": scm_code,
                 "quantity": qty,
                 "case_size": case_size
@@ -120,6 +125,7 @@ async def process(file_path: str, business_id: uuid.UUID, user_id: uuid.UUID) ->
                     category=ProductCategory(row["category"]),
                     size_ml=row["size_ml"],
                     mrp=row["mrp"],
+                    purchase_price=row["purchase_price"],
                     scm_code=row["scm_code"],
                     case_size=row["case_size"],
                     status=ProductStatus.ACTIVE

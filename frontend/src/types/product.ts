@@ -20,6 +20,7 @@ export interface Product {
   category: ProductCategory;
   size_ml: number;
   mrp: number;
+  purchase_price: number;
   scm_code: string;
   case_size?: number;
   status: 'ACTIVE' | 'INACTIVE';

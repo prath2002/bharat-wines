@@ -139,6 +139,7 @@ export default function ImportsPage() {
                     <th className="px-6 py-3">Category</th>
                     <th className="px-6 py-3">Size (ml)</th>
                     <th className="px-6 py-3">MRP</th>
+                    <th className="px-6 py-3">Purchase Price</th>
                     <th className="px-6 py-3">SCM Code</th>
                     <th className="px-6 py-3">Opening Qty</th>
                   </tr>
@@ -150,6 +151,7 @@ export default function ImportsPage() {
                       <td className="px-6 py-4">{row["Category"]}</td>
                       <td className="px-6 py-4">{row["Size (ml)"]}</td>
                       <td className="px-6 py-4">₹{row["MRP"]}</td>
+                      <td className="px-6 py-4">₹{row["Purchase Price"]}</td>
                       <td className="px-6 py-4">{row["SCM Code"]}</td>
                       <td className="px-6 py-4">{row["Opening Quantity"]}</td>
                     </tr>
