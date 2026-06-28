@@ -76,7 +76,7 @@ async def process_tp_async(receipt_id: str, file_url: str, business_id: str):
                 
                 # Check for exact SCM code match first
                 if p.scm_code:
-                    exact_match = next((cp for cp in catalog if cp.scm_code == p.scm_code), None)
+                    exact_match = next((cp for cp in catalog if cp.scm_code == p.scm_code or p.scm_code in cp.additional_scm_codes), None)
                     if exact_match:
                         matched_product_id = exact_match.id
                         match_confidence = 1.0

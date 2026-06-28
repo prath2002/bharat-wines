@@ -41,7 +41,10 @@ class ProductRepository(BaseRepository[Product]):
     async def get_by_scm_code(self, scm_code: str) -> Optional[Product]:
         stmt = select(self.model).options(selectinload(self.model.barcodes)).where(
             self.model.business_id == self.business_id,
-            self.model.scm_code == scm_code,
+            or_(
+                self.model.scm_code == scm_code,
+                self.model.additional_scm_codes.any(scm_code)
+            ),
             self.model.status != ProductStatus.INACTIVE
         )
         result = await self.db.execute(stmt)

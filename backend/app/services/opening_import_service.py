@@ -46,7 +46,12 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
             size = float(row["Size (ml)"])
             mrp = float(row["MRP"])
             purchase_price = float(row["Purchase Price"])
-            scm_code = str(row["SCM Code"]).strip()
+            
+            scm_code_raw = str(row["SCM Code"]).strip()
+            scm_code_parts = [c.strip() for c in scm_code_raw.split(',') if c.strip()]
+            scm_code = scm_code_parts[0] if scm_code_parts else ""
+            additional_scm_codes = scm_code_parts[1:] if len(scm_code_parts) > 1 else []
+            
             qty = int(row["Opening Quantity"])
             case_size = int(row["Case Size"]) if "Case Size" in df.columns and not pd.isna(row["Case Size"]) else None
             
@@ -79,6 +84,7 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
                 "mrp": mrp,
                 "purchase_price": purchase_price,
                 "scm_code": scm_code,
+                "additional_scm_codes": additional_scm_codes,
                 "quantity": qty,
                 "case_size": case_size
             })
@@ -127,6 +133,7 @@ async def process(file_path: str, business_id: uuid.UUID, user_id: uuid.UUID) ->
                     mrp=row["mrp"],
                     purchase_price=row["purchase_price"],
                     scm_code=row["scm_code"],
+                    additional_scm_codes=row["additional_scm_codes"],
                     case_size=row["case_size"],
                     status=ProductStatus.ACTIVE
                 )
@@ -134,7 +141,11 @@ async def process(file_path: str, business_id: uuid.UUID, user_id: uuid.UUID) ->
                 await db.flush() # get ID
                 products_created += 1
             else:
-                # Optionally update MRP/SCM code? Let's just use existing for now.
+                # Update MRP/SCM code? Let's just use existing for now.
+                # If they imported a new additional SCM code, we should append it
+                new_additional = set(product.additional_scm_codes) | set(row["additional_scm_codes"])
+                if new_additional != set(product.additional_scm_codes):
+                    product.additional_scm_codes = list(new_additional)
                 products_updated += 1
                 
             # 2. Add Opening Stock Movement

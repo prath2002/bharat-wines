@@ -22,6 +22,7 @@ export interface Product {
   mrp: number;
   purchase_price: number;
   scm_code: string;
+  additional_scm_codes?: string[];
   case_size?: number;
   status: 'ACTIVE' | 'INACTIVE';
   current_stock?: number;

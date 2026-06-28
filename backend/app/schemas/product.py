@@ -26,6 +26,7 @@ class ProductBase(BaseModel):
     size_ml: int = Field(..., gt=0)
     mrp: float = Field(..., gt=0)
     scm_code: str = Field(..., max_length=50)
+    additional_scm_codes: List[str] = Field(default_factory=list)
     purchase_price: float = Field(..., gt=0)
     case_size: Optional[int] = Field(None, gt=0)
 
@@ -36,6 +37,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     category: Optional[ProductCategory] = None
     size_ml: Optional[int] = Field(None, gt=0)
+    additional_scm_codes: Optional[List[str]] = None
     purchase_price: Optional[float] = Field(None, gt=0)
     status: Optional[ProductStatus] = None
     case_size: Optional[int] = Field(None, gt=0)
