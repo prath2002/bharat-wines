@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, File, AlertCircle, Loader2 } from "lucide-react";
+import { UploadCloud, File, AlertCircle, Loader2, Camera, X } from "lucide-react";
 import { apiClient } from "@/services/api-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { motion } from "framer-motion";
@@ -16,6 +16,10 @@ export default function TPUploadPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -57,6 +61,55 @@ export default function TPUploadPage() {
     }
     
     setFile(selectedFile);
+  };
+
+  const startCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      }).catch(() => navigator.mediaDevices.getUserMedia({ video: true })); // Fallback
+      
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setError("Could not access camera. Please check permissions.");
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const capturedFile = new window.File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
+            validateAndSetFile(capturedFile);
+            stopCamera();
+          }
+        }, "image/jpeg", 0.9);
+      }
+    }
   };
 
   const handleUpload = async () => {
@@ -128,7 +181,35 @@ export default function TPUploadPage() {
               </div>
               
               <h3 className="text-xl font-heading font-semibold text-foreground mb-2">Drag & Drop your permit here</h3>
-              <p className="text-muted-foreground mb-6">or click to browse from your computer</p>
+              <p className="text-muted-foreground mb-4">or choose an option below</p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full sm:w-auto bg-background/50 backdrop-blur-sm hover:bg-muted/80 z-10 relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  Browse Files
+                </Button>
+                
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full sm:w-auto bg-background/50 backdrop-blur-sm hover:bg-muted/80 z-10 relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startCamera();
+                  }}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Take Photo
+                </Button>
+              </div>
               
               <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80 flex flex-col md:flex-row justify-center gap-2 md:gap-4">
                 <span>Supported: JPG, PNG, PDF</span>
@@ -172,6 +253,39 @@ export default function TPUploadPage() {
                   Process with AI <span className="ml-3 text-2xl">✨</span>
                 </Button>
               )}
+            </div>
+          )}
+          
+          {/* Camera Overlay */}
+          {isCameraOpen && (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm p-4">
+              <div className="relative w-full max-w-2xl bg-black rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                <Button 
+                  variant="ghost" 
+                  className="absolute top-2 right-2 text-white hover:bg-white/20 z-10"
+                  size="icon"
+                  onClick={stopCamera}
+                >
+                  <X className="h-6 w-6" />
+                </Button>
+                
+                <video 
+                  ref={videoRef} 
+                  className="w-full h-auto max-h-[70vh] object-cover" 
+                  playsInline 
+                />
+                <canvas ref={canvasRef} className="hidden" />
+                
+                <div className="p-6 bg-card border-t border-border/50 flex justify-center">
+                  <Button 
+                    size="lg"
+                    className="w-full md:w-auto h-14 px-12 rounded-full text-lg shadow-[0_0_20px_var(--color-primary)] bg-primary"
+                    onClick={capturePhoto}
+                  >
+                    <Camera className="mr-2 h-6 w-6" /> Capture Photo
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
