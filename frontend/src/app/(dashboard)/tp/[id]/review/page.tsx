@@ -34,7 +34,8 @@ export default function TPReviewPage() {
     mrp: "",
     category: "IMFL",
     scm_code: "",
-    case_size: "12"
+    case_size: "12",
+    purchase_price: ""
   });
 
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -143,7 +144,8 @@ export default function TPReviewPage() {
         size_ml: parseInt(newProductForm.size_ml) || 0,
         mrp: parseFloat(newProductForm.mrp) || 0,
         scm_code: newProductForm.scm_code,
-        case_size: parseInt(newProductForm.case_size) || 12
+        case_size: parseInt(newProductForm.case_size) || 12,
+        purchase_price: parseFloat(newProductForm.purchase_price) || 0
       };
       
       const productRes = await apiClient.post("/products", productData);
@@ -172,7 +174,8 @@ export default function TPReviewPage() {
       mrp: line.extracted_mrp?.toString() || "",
       category: "IMFL",
       scm_code: "",
-      case_size: "12"
+      case_size: "12",
+      purchase_price: ""
     });
     setIsProductModalOpen(true);
   };
@@ -593,15 +596,27 @@ export default function TPReviewPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="scm_code" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SCM Code</Label>
-              <Input 
-                id="scm_code" 
-                value={newProductForm.scm_code} 
-                onChange={e => setNewProductForm({...newProductForm, scm_code: e.target.value})} 
-                className="bg-background font-mono focus-visible:ring-primary/50" 
-                placeholder="Unique identifier"
-              />
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="purchase_price" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Purchase Price (₹)</Label>
+                <Input 
+                  id="purchase_price" 
+                  type="number"
+                  value={newProductForm.purchase_price} 
+                  onChange={e => setNewProductForm({...newProductForm, purchase_price: e.target.value})} 
+                  className="bg-background focus-visible:ring-primary/50" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="scm_code" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SCM Code</Label>
+                <Input 
+                  id="scm_code" 
+                  value={newProductForm.scm_code} 
+                  onChange={e => setNewProductForm({...newProductForm, scm_code: e.target.value})} 
+                  className="bg-background font-mono focus-visible:ring-primary/50" 
+                  placeholder="Unique identifier"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="p-6 border-t border-border/50 bg-muted/5 flex sm:justify-end gap-3">

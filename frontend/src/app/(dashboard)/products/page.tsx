@@ -37,7 +37,8 @@ export default function ProductsPage() {
     size_ml: 750,
     mrp: "",
     scm_code: "",
-    case_size: ""
+    case_size: "",
+    purchase_price: ""
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,6 +69,7 @@ export default function ProductsPage() {
         mrp: Number(formData.mrp),
         scm_code: formData.scm_code,
         case_size: formData.case_size ? Number(formData.case_size) : null,
+        purchase_price: formData.purchase_price ? Number(formData.purchase_price) : null,
       };
 
       const res = await apiClient.post("/products", payload);
@@ -77,7 +79,7 @@ export default function ProductsPage() {
       }
 
       setIsAddModalOpen(false);
-      setFormData({ name: "", category: "WINE", size_ml: 750, mrp: "", scm_code: "", case_size: "" });
+      setFormData({ name: "", category: "WINE", size_ml: 750, mrp: "", scm_code: "", case_size: "", purchase_price: "" });
       fetchProducts();
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail;
@@ -127,6 +129,7 @@ export default function ProductsPage() {
                 <th className="px-6 py-4">Category</th>
                 <th className="px-6 py-4">Size</th>
                 <th className="px-6 py-4">MRP</th>
+                <th className="px-6 py-4 hidden sm:table-cell">Purchase Price</th>
                 <th className="px-6 py-4 hidden md:table-cell">SCM Code</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
@@ -143,6 +146,7 @@ export default function ProductsPage() {
                   <tr key={i}>
                     <td className="px-6 py-4"><Skeleton className="h-5 w-48" /></td>
                     <td className="px-6 py-4"><Skeleton className="h-5 w-16" /></td>
+                    <td className="px-6 py-4 hidden sm:table-cell"><Skeleton className="h-5 w-16" /></td>
                     <td className="px-6 py-4"><Skeleton className="h-5 w-12" /></td>
                     <td className="px-6 py-4"><Skeleton className="h-5 w-16" /></td>
                     <td className="px-6 py-4 hidden md:table-cell"><Skeleton className="h-5 w-24" /></td>
@@ -175,6 +179,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">{p.size_ml}ml</td>
                     <td className="px-6 py-4 font-bold text-foreground">₹{p.mrp}</td>
+                    <td className="px-6 py-4 font-medium text-muted-foreground hidden sm:table-cell">{p.purchase_price ? `₹${p.purchase_price}` : '-'}</td>
                     <td className="px-6 py-4 text-muted-foreground font-mono text-[11px] hidden md:table-cell">{p.scm_code}</td>
                     <td className="px-6 py-4">
                       <Badge variant={p.status === 'ACTIVE' ? 'default' : 'destructive'} className={p.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-green-500/20 dark:text-green-400' : ''}>
@@ -248,9 +253,15 @@ export default function ProductsPage() {
                     <Input type="number" min="1" className="bg-background" value={formData.case_size} onChange={(e) => setFormData({...formData, case_size: e.target.value})} />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5 text-muted-foreground">SCM Code</label>
-                  <Input required type="text" className="bg-background font-mono" value={formData.scm_code} onChange={(e) => setFormData({...formData, scm_code: e.target.value})} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Purchase Price (₹)</label>
+                    <Input required type="number" min="0" step="0.01" className="bg-background" value={formData.purchase_price} onChange={(e) => setFormData({...formData, purchase_price: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-muted-foreground">SCM Code</label>
+                    <Input required type="text" className="bg-background font-mono" value={formData.scm_code} onChange={(e) => setFormData({...formData, scm_code: e.target.value})} />
+                  </div>
                 </div>
                 
                 <div className="mt-8 flex justify-end gap-3 border-t border-border/50 pt-6">

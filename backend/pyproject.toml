@@ -20,14 +20,15 @@ dependencies = [
     "rapidfuzz",
     "pandas",
     "openpyxl",
-    "openai"
+    "openai>=1.50.0",
+    "httpx<0.28.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pytest-asyncio",
-    "httpx",
+    "httpx<0.28.0",
     "ruff",
     "mypy"
 ]

@@ -80,6 +80,10 @@ export default function ProductDetailPage() {
                 <p className="font-medium text-lg text-gray-900">₹{product.mrp}</p>
               </div>
               <div>
+                <p className="text-sm text-gray-500 mb-1">Purchase Price (₹)</p>
+                <p className="font-medium text-lg text-gray-900">{product.purchase_price ? `₹${product.purchase_price}` : 'N/A'}</p>
+              </div>
+              <div>
                 <p className="text-sm text-gray-500 mb-1">SCM Code</p>
                 <p className="font-mono text-gray-900 bg-gray-50 inline-block px-2 py-0.5 rounded border">{product.scm_code}</p>
               </div>

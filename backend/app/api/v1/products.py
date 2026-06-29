@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 import uuid
 from typing import List, Optional
 
@@ -26,9 +27,19 @@ async def create_product(
     if existing_scm:
         raise HTTPException(status_code=409, detail="SCM code already exists")
     
-    product = await repo.create(data.model_dump())
-    await db.commit()
-    return product
+    try:
+        product = await repo.create(data.model_dump())
+        await db.commit()
+        return product
+    except IntegrityError as e:
+        await db.rollback()
+        # Handle unique constraint violation on (business_id, name, size_ml)
+        if "uq_business_name_size" in str(e):
+            raise HTTPException(
+                status_code=409, 
+                detail=f"A product with the name '{data.name}' and size {data.size_ml}ml already exists."
+            )
+        raise HTTPException(status_code=409, detail="Database integrity error")
 
 @router.get("", response_model=ProductListResponse)
 async def list_products(
