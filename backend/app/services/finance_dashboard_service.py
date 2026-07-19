@@ -1,15 +1,13 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.bill import Bill, BillStatus
-from app.models.bill_settlement import BillSettlement
-from app.models.vendor import Vendor
+
 
 def _d(value) -> Decimal:
     return Decimal(str(value)) if value is not None else Decimal("0")
@@ -20,19 +18,17 @@ def _month_key(d) -> str:
 def _bill_effective_date(bill: Bill) -> date:
     return bill.bill_date or bill.created_at.date()
 
-def _in_range(d: date, date_from: Optional[date], date_to: Optional[date]) -> bool:
+def _in_range(d: date, date_from: date | None, date_to: date | None) -> bool:
     if date_from and d < date_from:
         return False
-    if date_to and d > date_to:
-        return False
-    return True
+    return not (date_to and d > date_to)
 
 async def get_finance_summary(
     db: AsyncSession,
     business_id: uuid.UUID,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    vendor_id: Optional[uuid.UUID] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    vendor_id: uuid.UUID | None = None,
 ) -> dict:
     """
     Aggregates verified bills + settlements for the finance dashboard.
@@ -51,9 +47,9 @@ async def get_finance_summary(
     bills = result.scalars().all()
     return summarize_bills(bills, date_from, date_to)
 
-def summarize_bills(bills, date_from: Optional[date] = None, date_to: Optional[date] = None) -> dict:
+def summarize_bills(bills, date_from: date | None = None, date_to: date | None = None) -> dict:
     """Pure aggregation over already-loaded bills (settlements + vendor eager-loaded)."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     totals = {
         "billed": Decimal("0"), "paid": Decimal("0"), "outstanding": Decimal("0"),

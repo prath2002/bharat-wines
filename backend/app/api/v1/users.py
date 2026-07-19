@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from app.core.dependencies import require_permissions
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserCreateRequest, UserUpdateRequest, UserResponse
+from app.schemas.user import UserCreateRequest, UserResponse, UserUpdateRequest
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ async def create_user(
     await db.refresh(user)
     return user
 
-@router.get("", response_model=List[UserResponse])
+@router.get("", response_model=list[UserResponse])
 async def list_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permissions("users.view"))

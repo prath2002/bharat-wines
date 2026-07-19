@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,13 +8,13 @@ from app.core.dependencies import require_permissions
 from app.db.session import get_db
 from app.models.user import User
 from app.models.vendor import Vendor
-from app.schemas.bill import VendorResponse, VendorCreateRequest, VendorUpdateRequest
+from app.schemas.bill import VendorCreateRequest, VendorResponse, VendorUpdateRequest
 from app.services.bill_service import get_or_create_vendor
 from app.workers.bill_processing import normalize_vendor_name
 
 router = APIRouter()
 
-@router.get("", response_model=List[VendorResponse])
+@router.get("", response_model=list[VendorResponse])
 async def list_vendors(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permissions("vendors.view"))
@@ -33,7 +33,7 @@ async def create_vendor(
     try:
         vendor = await get_or_create_vendor(payload.name, db, current_user.business_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if payload.gstin:
         vendor.gstin = payload.gstin
     await db.commit()

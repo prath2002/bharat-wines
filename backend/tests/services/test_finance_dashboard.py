@@ -1,9 +1,10 @@
 import uuid
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 from app.models.bill import BillStatus, PaymentStatus
 from app.services.finance_dashboard_service import summarize_bills
+
 
 def _vendor(name):
     return SimpleNamespace(id=uuid.uuid4(), name=name)
@@ -26,7 +27,7 @@ def _bill(vendor=None, status=BillStatus.VERIFIED, payment_status=PaymentStatus.
         charges=charges or [],
         bill_date=bill_date or date(2026, 7, 5),
         due_date=due_date,
-        created_at=datetime(2026, 7, 5, tzinfo=timezone.utc),
+        created_at=datetime(2026, 7, 5, tzinfo=UTC),
         settlements=settlements or [],
         has_total_mismatch=has_total_mismatch,
     )

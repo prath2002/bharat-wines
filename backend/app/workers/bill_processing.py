@@ -3,14 +3,14 @@ import logging
 import re
 from decimal import Decimal
 
-from sqlalchemy.future import select
 from celery import shared_task
-from rapidfuzz import process, fuzz
+from rapidfuzz import fuzz, process
+from sqlalchemy.future import select
 
 from app.db.session import AsyncSessionLocal, engine
+from app.integrations.ai import get_bill_extraction_client, get_ocr_client
 from app.models.bill import Bill, BillStatus
 from app.models.vendor import Vendor
-from app.integrations.ai import get_ocr_client, get_bill_extraction_client
 
 logger = logging.getLogger(__name__)
 

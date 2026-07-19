@@ -1,11 +1,13 @@
 import enum
 import uuid
 from datetime import date, datetime
-from sqlalchemy import String, Date, Text, Enum, ForeignKey, DateTime, Numeric, Boolean, Index
+
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import TenantModel
+
 
 class BillStatus(str, enum.Enum):
     PROCESSING = "PROCESSING"

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import TenantModel
 
+
 class Vendor(TenantModel):
     __tablename__ = "vendors"
 

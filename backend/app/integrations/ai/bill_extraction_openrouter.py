@@ -1,14 +1,17 @@
-import os
-import json
 import base64
+import contextlib
+import json
+import os
 from datetime import datetime
+
 from openai import AsyncOpenAI
 
 from app.integrations.ai.bill_extraction_interface import (
+    BillChargeItem,
     BillExtractionInterface,
     BillExtractionResult,
-    BillChargeItem,
 )
+
 
 def _to_float(value, default=None):
     if value is None:
@@ -29,7 +32,7 @@ class OpenRouterBillExtractionClient(BillExtractionInterface):
         )
 
         prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'bill_extraction.txt')
-        with open(prompt_path, 'r') as f:
+        with open(prompt_path) as f:
             self.system_prompt = f.read()
 
     async def extract_structured(self, raw_text: str) -> BillExtractionResult:
@@ -76,10 +79,8 @@ class OpenRouterBillExtractionClient(BillExtractionInterface):
 
         bill_date = None
         if data.get("bill_date"):
-            try:
+            with contextlib.suppress(ValueError):
                 bill_date = datetime.strptime(data["bill_date"], "%Y-%m-%d").date()
-            except ValueError:
-                pass
 
         charges = []
         for c in data.get("charges") or []:

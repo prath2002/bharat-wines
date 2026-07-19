@@ -1,5 +1,6 @@
-from app.services.bill_service import derive_payment_status
 from app.models.bill import PaymentStatus
+from app.services.bill_service import derive_payment_status
+
 
 class FakeSettlement:
     def __init__(self, amount):

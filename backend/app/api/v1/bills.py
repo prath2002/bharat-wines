@@ -1,21 +1,24 @@
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import Optional
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status
-from sqlalchemy import select, func
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_user, require_permissions, ROLE_PERMISSIONS
+from app.core.dependencies import ROLE_PERMISSIONS, get_current_user, require_permissions
 from app.db.session import get_db
-from app.models.user import User
 from app.models.bill import Bill, BillStatus, PaymentStatus
-from app.models.bill_settlement import BillSettlement
-from app.models.vendor import Vendor
+from app.models.user import User
 from app.schemas.bill import (
-    BillResponse, BillDetailResponse, BillLimitedResponse, BillUpdateRequest,
-    VerifyRequest, SettlementCreateRequest, SettlementResponse,
+    BillDetailResponse,
+    BillLimitedResponse,
+    BillResponse,
+    BillUpdateRequest,
+    SettlementCreateRequest,
+    SettlementResponse,
+    VerifyRequest,
 )
 from app.services import bill_service
 from app.services.finance_dashboard_service import get_finance_summary
@@ -53,13 +56,13 @@ async def upload_bill(
         bill = await bill_service.upload_bill(file, db, current_user.business_id, current_user.id)
         return {"id": bill.id, "status": bill.status.name}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/summary")
 async def finance_summary(
-    date_from: Optional[date] = Query(None),
-    date_to: Optional[date] = Query(None),
-    vendor_id: Optional[uuid.UUID] = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    vendor_id: uuid.UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permissions("finance.dashboard"))
 ):
@@ -67,12 +70,12 @@ async def finance_summary(
 
 @router.get("")
 async def list_bills(
-    bill_status: Optional[BillStatus] = Query(None, alias="status"),
-    payment_status: Optional[PaymentStatus] = Query(None),
-    vendor_id: Optional[uuid.UUID] = Query(None),
-    uploaded_by: Optional[uuid.UUID] = Query(None),
-    date_from: Optional[date] = Query(None),
-    date_to: Optional[date] = Query(None),
+    bill_status: BillStatus | None = Query(None, alias="status"),
+    payment_status: PaymentStatus | None = Query(None),
+    vendor_id: uuid.UUID | None = Query(None),
+    uploaded_by: uuid.UUID | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -156,7 +159,7 @@ async def update_bill(
     try:
         bill = await bill_service.update_bill_fields(bill_id, data, db, current_user.business_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
     return _full_response(bill)
 
@@ -171,7 +174,7 @@ async def verify_bill(
     try:
         bill = await bill_service.verify_bill(bill_id, db, current_user.business_id, current_user.id, vendor_name)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
     return _full_response(bill)
 
@@ -184,7 +187,7 @@ async def reject_bill(
     try:
         bill = await bill_service.reject_bill(bill_id, db, current_user.business_id, current_user.id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
     return _full_response(bill)
 
@@ -200,7 +203,7 @@ async def add_settlement(
             bill_id, payload.model_dump(), db, current_user.business_id, current_user.id
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return settlement
 
 @router.delete("/settlements/{settlement_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -212,4 +215,4 @@ async def delete_settlement(
     try:
         await bill_service.delete_settlement(settlement_id, db, current_user.business_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e

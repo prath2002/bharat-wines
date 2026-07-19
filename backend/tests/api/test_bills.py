@@ -1,9 +1,10 @@
 import pytest
 from httpx import AsyncClient
 
-from app.models.user import User, Role
 from app.api.v1.bills import _can_view_all
+from app.models.user import Role, User
 from app.schemas.bill import BillLimitedResponse, BillResponse
+
 
 def _user(role: Role) -> User:
     u = User()

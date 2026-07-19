@@ -1,9 +1,10 @@
 import pytest
 
 from app.integrations.ai import get_bill_extraction_client
-from app.integrations.ai.bill_extraction_mock import MockBillExtractionClient
 from app.integrations.ai.bill_extraction_interface import BillExtractionResult
+from app.integrations.ai.bill_extraction_mock import MockBillExtractionClient
 from app.integrations.ai.bill_extraction_openrouter import _to_float
+
 
 @pytest.mark.asyncio
 async def test_mock_bill_extraction_returns_valid_result(monkeypatch):

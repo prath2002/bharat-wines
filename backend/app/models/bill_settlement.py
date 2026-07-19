@@ -1,10 +1,12 @@
 import enum
 import uuid
 from datetime import date
-from sqlalchemy import String, Date, Enum, ForeignKey, Numeric, Text
+
+from sqlalchemy import Date, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import TenantModel
+
 
 class SettlementMethod(str, enum.Enum):
     BANK_TRANSFER = "BANK_TRANSFER"

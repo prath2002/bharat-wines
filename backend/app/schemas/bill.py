@@ -1,10 +1,11 @@
 import uuid
 from datetime import date, datetime
-from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.models.bill import BillStatus, PaymentStatus
 from app.models.bill_settlement import SettlementMethod
+
 
 class ChargeItem(BaseModel):
     label: str
@@ -15,16 +16,16 @@ class VendorResponse(BaseModel):
 
     id: uuid.UUID
     name: str
-    gstin: Optional[str] = None
+    gstin: str | None = None
     created_at: datetime
 
 class VendorCreateRequest(BaseModel):
     name: str
-    gstin: Optional[str] = None
+    gstin: str | None = None
 
 class VendorUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    gstin: Optional[str] = None
+    name: str | None = None
+    gstin: str | None = None
 
 class SettlementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -34,16 +35,16 @@ class SettlementResponse(BaseModel):
     amount: float
     paid_on: date
     method: SettlementMethod
-    reference: Optional[str] = None
-    notes: Optional[str] = None
+    reference: str | None = None
+    notes: str | None = None
     created_at: datetime
 
 class SettlementCreateRequest(BaseModel):
     amount: float
     paid_on: date
     method: SettlementMethod
-    reference: Optional[str] = None
-    notes: Optional[str] = None
+    reference: str | None = None
+    notes: str | None = None
 
     @field_validator("amount")
     @classmethod
@@ -53,48 +54,48 @@ class SettlementCreateRequest(BaseModel):
         return v
 
 class BillUpdateRequest(BaseModel):
-    bill_number: Optional[str] = None
-    bill_date: Optional[date] = None
-    vendor_id: Optional[uuid.UUID] = None
-    extracted_vendor_name: Optional[str] = None
-    subtotal: Optional[float] = None
-    discount_amount: Optional[float] = None
-    charges: Optional[List[ChargeItem]] = None
-    total_amount: Optional[float] = None
-    due_date: Optional[date] = None
-    notes: Optional[str] = None
+    bill_number: str | None = None
+    bill_date: date | None = None
+    vendor_id: uuid.UUID | None = None
+    extracted_vendor_name: str | None = None
+    subtotal: float | None = None
+    discount_amount: float | None = None
+    charges: list[ChargeItem] | None = None
+    total_amount: float | None = None
+    due_date: date | None = None
+    notes: str | None = None
 
 class VerifyRequest(BaseModel):
-    vendor_name: Optional[str] = None
+    vendor_name: str | None = None
 
 class BillResponse(BaseModel):
     """Full projection for FINANCE / ADMIN."""
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    vendor_id: Optional[uuid.UUID] = None
-    vendor_name: Optional[str] = None
-    extracted_vendor_name: Optional[str] = None
+    vendor_id: uuid.UUID | None = None
+    vendor_name: str | None = None
+    extracted_vendor_name: str | None = None
     uploaded_by: uuid.UUID
     file_url: str
-    bill_number: Optional[str] = None
-    bill_date: Optional[date] = None
-    subtotal: Optional[float] = None
+    bill_number: str | None = None
+    bill_date: date | None = None
+    subtotal: float | None = None
     discount_amount: float = 0
-    charges: Optional[List[ChargeItem]] = None
-    total_amount: Optional[float] = None
+    charges: list[ChargeItem] | None = None
+    total_amount: float | None = None
     has_total_mismatch: bool = False
     status: BillStatus
     payment_status: PaymentStatus
     amount_paid: float = 0
-    due_date: Optional[date] = None
-    notes: Optional[str] = None
-    verified_at: Optional[datetime] = None
+    due_date: date | None = None
+    notes: str | None = None
+    verified_at: datetime | None = None
     created_at: datetime
 
 class BillDetailResponse(BillResponse):
-    ocr_raw_text: Optional[str] = None
-    settlements: List[SettlementResponse] = []
+    ocr_raw_text: str | None = None
+    settlements: list[SettlementResponse] = []
 
 class BillLimitedResponse(BaseModel):
     """Restricted projection for STAFF (own uploads, no financial data)."""

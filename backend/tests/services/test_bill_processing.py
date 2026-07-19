@@ -1,7 +1,8 @@
 import uuid
 from decimal import Decimal
 
-from app.workers.bill_processing import normalize_vendor_name, compute_total_check, match_vendor
+from app.workers.bill_processing import compute_total_check, match_vendor, normalize_vendor_name
+
 
 class FakeVendor:
     def __init__(self, name):

@@ -3,6 +3,7 @@ from httpx import AsyncClient
 
 from app.core.dependencies import ROLE_PERMISSIONS
 
+
 @pytest.mark.asyncio
 async def test_create_user_unauthenticated(client: AsyncClient):
     response = await client.post("/api/v1/users", json={

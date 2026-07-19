@@ -2,10 +2,11 @@ import asyncio
 from datetime import date
 
 from app.integrations.ai.bill_extraction_interface import (
+    BillChargeItem,
     BillExtractionInterface,
     BillExtractionResult,
-    BillChargeItem,
 )
+
 
 class MockBillExtractionClient(BillExtractionInterface):
     async def extract_structured(self, raw_text: str) -> BillExtractionResult:

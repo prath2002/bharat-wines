@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,11 @@ from app.models.bill import Bill, BillStatus, PaymentStatus
 from app.models.bill_settlement import BillSettlement
 from app.models.vendor import Vendor
 from app.services.file_service import upload_file
-from app.workers.bill_processing import process_bill_task, normalize_vendor_name, compute_total_check
+from app.workers.bill_processing import (
+    compute_total_check,
+    normalize_vendor_name,
+    process_bill_task,
+)
 
 EDITABLE_FIELDS = {"bill_number", "bill_date", "vendor_id", "subtotal", "discount_amount",
                    "charges", "total_amount", "due_date", "notes", "extracted_vendor_name"}
@@ -105,7 +109,7 @@ async def verify_bill(bill_id: uuid.UUID, db: AsyncSession, business_id: uuid.UU
 
     bill.status = BillStatus.VERIFIED
     bill.verified_by = user_id
-    bill.verified_at = datetime.now(timezone.utc)
+    bill.verified_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(bill)

@@ -1,20 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 from datetime import date
+
 from pydantic import BaseModel
+
 
 class BillChargeItem(BaseModel):
     label: str
     amount: float
 
 class BillExtractionResult(BaseModel):
-    bill_number: Optional[str] = None
+    bill_number: str | None = None
     vendor_name: str
-    bill_date: Optional[date] = None
-    subtotal: Optional[float] = None
+    bill_date: date | None = None
+    subtotal: float | None = None
     discount_amount: float = 0.0
-    charges: List[BillChargeItem] = []
-    total_amount: Optional[float] = None
+    charges: list[BillChargeItem] = []
+    total_amount: float | None = None
 
 class BillExtractionInterface(ABC):
     @abstractmethod
