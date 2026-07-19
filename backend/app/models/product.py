@@ -1,6 +1,6 @@
 import enum
 import uuid
-from typing import List
+from typing import List, Optional
 from sqlalchemy import String, Integer, Numeric, Enum, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -27,7 +27,7 @@ class Product(TenantModel):
     mrp: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     scm_code: Mapped[str] = mapped_column(String(50), nullable=False)
     additional_scm_codes: Mapped[list[str]] = mapped_column(ARRAY(String), server_default='{}', nullable=False)
-    purchase_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, server_default="0")
+    purchase_price: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True, server_default="0")
     case_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[ProductStatus] = mapped_column(Enum(ProductStatus, native_enum=True), default=ProductStatus.ACTIVE)
 

@@ -14,9 +14,10 @@ from sqlalchemy import select
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 ROLE_PERMISSIONS = {
-    "ADMIN": ["products.*", "movements.*", "tp.*", "mrp.approve", "scm.*", "reports.*", "users.*"],
+    "ADMIN": ["products.*", "movements.*", "tp.*", "mrp.approve", "scm.*", "reports.*", "users.*", "imports.*", "bills.*", "vendors.*", "finance.*"],
     "STOCK_MANAGER": ["products.create", "products.edit", "products.view", "movements.*", "tp.upload", "tp.approve", "reports.view"],
-    "STAFF": ["products.view", "movements.create"],
+    "STAFF": ["products.view", "movements.create", "bills.upload", "bills.view_own"],
+    "FINANCE": ["bills.*", "vendors.*", "finance.*", "products.view", "reports.view"],
 }
 
 async def get_current_user(
