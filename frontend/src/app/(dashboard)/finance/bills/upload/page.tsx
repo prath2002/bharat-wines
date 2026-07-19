@@ -113,8 +113,9 @@ export default function BillUploadPage() {
     try {
       await uploadBill(file);
       router.push("/finance/bills");
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to upload file. Please try again.");
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      setError(detail || "Failed to upload file. Please try again.");
       setUploading(false);
     }
   };

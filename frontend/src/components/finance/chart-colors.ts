@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
+
+const emptySubscribe = () => () => {};
+/** True after hydration on the client, false during SSR — no effect needed. */
+function useMounted() {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
 
 /**
  * Chart colors validated with the dataviz palette validator against both
@@ -12,8 +18,7 @@ import { useTheme } from "next-themes";
  */
 export function useChartColors() {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
   const dark = mounted && resolvedTheme === "dark";
 
   return {

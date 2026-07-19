@@ -59,6 +59,10 @@ interface FormState {
   notes: string;
 }
 
+function apiErrorDetail(e: unknown, fallback: string): string {
+  return (e as { response?: { data?: { detail?: string } } }).response?.data?.detail || fallback;
+}
+
 export default function BillReviewPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -84,22 +88,21 @@ export default function BillReviewPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (bill && bill.status !== "PROCESSING" && form === null) {
-      setForm({
-        bill_number: bill.bill_number ?? "",
-        bill_date: bill.bill_date ?? "",
-        vendor_id: bill.vendor_id ?? "",
-        vendor_name_new: "",
-        subtotal: bill.subtotal != null ? String(bill.subtotal) : "",
-        discount_amount: String(bill.discount_amount ?? 0),
-        charges: (bill.charges ?? []).map((c) => ({ label: c.label, amount: String(c.amount) })),
-        total_amount: bill.total_amount != null ? String(bill.total_amount) : "",
-        due_date: bill.due_date ?? "",
-        notes: bill.notes ?? "",
-      });
-    }
-  }, [bill, form]);
+  // Derived-state-during-render: seed the form once the bill has loaded.
+  if (bill && bill.status !== "PROCESSING" && form === null) {
+    setForm({
+      bill_number: bill.bill_number ?? "",
+      bill_date: bill.bill_date ?? "",
+      vendor_id: bill.vendor_id ?? "",
+      vendor_name_new: "",
+      subtotal: bill.subtotal != null ? String(bill.subtotal) : "",
+      discount_amount: String(bill.discount_amount ?? 0),
+      charges: (bill.charges ?? []).map((c) => ({ label: c.label, amount: String(c.amount) })),
+      total_amount: bill.total_amount != null ? String(bill.total_amount) : "",
+      due_date: bill.due_date ?? "",
+      notes: bill.notes ?? "",
+    });
+  }
 
   const computed = useMemo(() => {
     if (!form) return null;
@@ -137,7 +140,7 @@ export default function BillReviewPage() {
   const saveMutation = useMutation({
     mutationFn: () => updateBill(params.id, buildPayload()),
     onSuccess: () => { setActionError(null); invalidate(); },
-    onError: (e: any) => setActionError(e.response?.data?.detail || "Failed to save changes"),
+    onError: (e: unknown) => setActionError(apiErrorDetail(e, "Failed to save changes")),
   });
 
   const verifyMutation = useMutation({
@@ -146,13 +149,13 @@ export default function BillReviewPage() {
       return verifyBill(params.id, form?.vendor_name_new || undefined);
     },
     onSuccess: () => { setActionError(null); setForm(null); invalidate(); },
-    onError: (e: any) => setActionError(e.response?.data?.detail || "Failed to verify bill"),
+    onError: (e: unknown) => setActionError(apiErrorDetail(e, "Failed to verify bill")),
   });
 
   const rejectMutation = useMutation({
     mutationFn: () => rejectBill(params.id),
     onSuccess: () => { invalidate(); router.push("/finance/bills"); },
-    onError: (e: any) => setActionError(e.response?.data?.detail || "Failed to reject bill"),
+    onError: (e: unknown) => setActionError(apiErrorDetail(e, "Failed to reject bill")),
   });
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1").replace(/\/api\/v1$/, "");
@@ -453,9 +456,10 @@ function SettlementsCard({
     notes: "",
   });
 
-  useEffect(() => {
-    if (open) setPayment((p) => ({ ...p, amount: outstanding > 0 ? String(outstanding) : "" }));
-  }, [open, outstanding]);
+  const handleOpenChange = (next: boolean) => {
+    if (next) setPayment((p) => ({ ...p, amount: outstanding > 0 ? String(outstanding) : "" }));
+    setOpen(next);
+  };
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -467,7 +471,7 @@ function SettlementsCard({
         notes: payment.notes || undefined,
       }),
     onSuccess: () => { setError(null); setOpen(false); onChanged(); },
-    onError: (e: any) => setError(e.response?.data?.detail || "Failed to record payment"),
+    onError: (e: unknown) => setError(apiErrorDetail(e, "Failed to record payment")),
   });
 
   const removeMutation = useMutation({
@@ -479,7 +483,7 @@ function SettlementsCard({
     <Card className="border-border/50">
       <CardHeader className="border-b border-border/50 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">Payments</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger
             render={
               <Button size="sm" disabled={outstanding <= 0}>
