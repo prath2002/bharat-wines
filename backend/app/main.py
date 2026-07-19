@@ -19,7 +19,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.api.v1 import auth, audit_logs, products, barcodes, movements, inventory, reports, imports, unknown_barcodes, tp, mrp, scm
+from app.api.v1 import auth, audit_logs, products, barcodes, movements, inventory, reports, imports, unknown_barcodes, tp, mrp, scm, users
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,6 +41,7 @@ app.include_router(unknown_barcodes.router, prefix="/api/v1/unknown-barcodes", t
 app.include_router(tp.router, prefix="/api/v1/tp", tags=["Transport Permits"])
 app.include_router(mrp.router, prefix="/api/v1/mrp", tags=["MRP Changes"])
 app.include_router(scm.router, prefix="/api/v1/scm", tags=["SCM"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 
 import os
 os.makedirs("uploads", exist_ok=True)
