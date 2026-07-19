@@ -3,7 +3,7 @@ import logging
 from sqlalchemy.future import select
 from celery import shared_task
 
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, engine
 from app.models.tp_receipt import TPReceipt, TPStatus
 from app.models.tp_receipt_line import TPReceiptLine
 from app.models.product import Product
@@ -116,7 +116,18 @@ async def process_tp_async(receipt_id: str, file_url: str, business_id: str):
                 receipt.status = TPStatus.REJECTED
                 await db.commit()
 
+async def _run_and_dispose(receipt_id: str, file_url: str, business_id: str):
+    try:
+        await process_tp_async(receipt_id, file_url, business_id)
+    finally:
+        # The engine's connection pool is created once at import time, but each
+        # Celery task run gets its own event loop via asyncio.run(). asyncpg
+        # connections are bound to the loop they were opened on, so pooled
+        # connections must be dropped before this loop closes, or the next
+        # task run fails with "attached to a different loop".
+        await engine.dispose()
+
 @shared_task
 def process_tp_receipt_task(receipt_id: str, file_url: str, business_id: str):
     """Celery task entrypoint."""
-    asyncio.run(process_tp_async(receipt_id, file_url, business_id))
+    asyncio.run(_run_and_dispose(receipt_id, file_url, business_id))

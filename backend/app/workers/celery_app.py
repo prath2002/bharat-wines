@@ -7,7 +7,8 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.workers.tasks.process_opening_import",
-        "app.workers.tp_processing"
+        "app.workers.tp_processing",
+        "app.workers.bill_processing"
     ]
 )
 
