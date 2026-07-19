@@ -145,7 +145,7 @@ export default function TPReviewPage() {
         mrp: parseFloat(newProductForm.mrp) || 0,
         scm_code: newProductForm.scm_code,
         case_size: parseInt(newProductForm.case_size) || 12,
-        purchase_price: parseFloat(newProductForm.purchase_price) || 0
+        purchase_price: newProductForm.purchase_price ? parseFloat(newProductForm.purchase_price) : null
       };
       
       const productRes = await apiClient.post("/products", productData);

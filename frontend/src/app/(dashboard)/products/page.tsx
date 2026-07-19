@@ -256,7 +256,7 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Purchase Price (₹)</label>
-                    <Input required type="number" min="0" step="0.01" className="bg-background" value={formData.purchase_price} onChange={(e) => setFormData({...formData, purchase_price: e.target.value})} />
+                    <Input type="number" min="0" step="0.01" className="bg-background" value={formData.purchase_price} onChange={(e) => setFormData({...formData, purchase_price: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-muted-foreground">SCM Code</label>

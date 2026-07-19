@@ -2,7 +2,24 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/services/api-client';
 import { useAuthStore } from '@/store/auth-store';
-import { User } from '@/types/auth';
+import { Role, User } from '@/types/auth';
+
+/**
+ * Decode the JWT payload to build the real user object.
+ * Backend embeds { sub, business_id, role } in the access token.
+ */
+export function decodeUser(accessToken: string, email?: string): User {
+  const payload = JSON.parse(
+    atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+  );
+  return {
+    id: payload.sub,
+    business_id: payload.business_id,
+    role: (payload.role as Role) ?? Role.STAFF,
+    email: email ?? '',
+    name: email ? email.split('@')[0] : 'User',
+  };
+}
 
 export interface LoginRequest {
   email: string;
@@ -35,20 +52,9 @@ export const useAuth = () => {
       const response = await apiClient.post<TokenResponse>('/auth/login', data);
       return response.data;
     },
-    onSuccess: (data) => {
-      // In a real application, you would decode the JWT to get the user object.
-      // For this implementation, we will mock the user object from the token response.
-      // Normally: const user = jwtDecode(data.access_token);
-      const userMock = {
-        id: '1',
-        business_id: '1',
-        name: 'User',
-        email: 'user@example.com',
-        role: 'ADMIN' as any,
-        is_active: true,
-        created_at: new Date().toISOString()
-      };
-      setAuth(userMock, data.access_token, data.refresh_token);
+    onSuccess: (data, variables) => {
+      const user = decodeUser(data.access_token, variables.email);
+      setAuth(user, data.access_token, data.refresh_token);
       router.push('/');
     },
   });
@@ -58,17 +64,9 @@ export const useAuth = () => {
       const response = await apiClient.post<TokenResponse>('/auth/register', data);
       return response.data;
     },
-    onSuccess: (data) => {
-      const userMock = {
-        id: '1',
-        business_id: '1',
-        name: 'Owner',
-        email: 'owner@example.com',
-        role: 'ADMIN' as any,
-        is_active: true,
-        created_at: new Date().toISOString()
-      };
-      setAuth(userMock, data.access_token, data.refresh_token);
+    onSuccess: (data, variables) => {
+      const user = decodeUser(data.access_token, variables.email);
+      setAuth(user, data.access_token, data.refresh_token);
       router.push('/');
     },
   });
