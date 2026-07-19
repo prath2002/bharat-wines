@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
@@ -105,10 +106,22 @@ function FinanceFilters({
 }
 
 export default function BillsPage() {
+  return (
+    <Suspense fallback={null}>
+      <BillsPageInner />
+    </Suspense>
+  );
+}
+
+function BillsPageInner() {
   const role = useAuthStore((state) => state.user?.role);
   const canViewFinancials = !!role && FINANCE_ROLES.includes(role);
+  const searchParams = useSearchParams();
 
-  const [filters, setFilters] = useState<BillListFilters>({});
+  const [filters, setFilters] = useState<BillListFilters>(() => ({
+    status: (searchParams.get("status") as BillListFilters["status"]) ?? undefined,
+    vendor_id: searchParams.get("vendor_id") ?? undefined,
+  }));
 
   const billsQuery = useQuery({
     queryKey: ["bills", filters],
