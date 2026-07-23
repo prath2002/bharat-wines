@@ -31,13 +31,14 @@ async def process_tp_async(receipt_id: str, file_url: str, business_id: str):
         async with AsyncSessionLocal() as db:
             # 3. Fuzzy Match against catalog
             # First, fetch all products for this business
-            result = await db.execute(select(Product).where(Product.business_id == business_id))
+            result = await db.execute(select(Product).where(Product.business_id == business_id).order_by(Product.name))
             catalog = result.scalars().all()
             
             extracted_names = [p.name for p in extraction_result.products]
+            extracted_sizes = [p.size for p in extraction_result.products]
             logger.info(f"Matching {len(extracted_names)} products against catalog of {len(catalog)} items")
-            
-            match_results = matching_client.match_products(extracted_names, catalog)
+
+            match_results = matching_client.match_products(extracted_names, catalog, extracted_sizes)
             
             # Fetch the receipt to update
             receipt_result = await db.execute(select(TPReceipt).where(TPReceipt.id == receipt_id))

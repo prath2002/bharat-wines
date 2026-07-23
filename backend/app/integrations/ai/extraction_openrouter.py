@@ -74,7 +74,8 @@ class OpenRouterExtractionClient(ExtractionInterface):
             for p in data.get("products", []):
                 products.append(TPProductItem(
                     name=p.get("name", "Unknown"),
-                    qty_cases=p.get("qty_cases", 0),
+                    scm_code=p.get("scm_code"),
+                    size=p.get("size"),
                     qty_bottles=p.get("qty_bottles", 0),
                     mrp=float(p.get("mrp", 0.0)),
                     batch_number=p.get("batch_number")

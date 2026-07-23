@@ -8,11 +8,16 @@ from app.db.session import AsyncSessionLocal, engine
 from app.models.import_job import ImportJob, ImportJobStatus
 from app.services.opening_import_service import process
 from app.integrations.s3 import get_file_path
+from app.integrations.redis import init_redis, close_redis
 
 logger = logging.getLogger(__name__)
 
 async def run_import_async(job_id: str):
     try:
+        # Celery workers never run FastAPI's startup event, so the global
+        # redis client is uninitialized here; create one scoped to this
+        # task's event loop (see engine.dispose() note below for why).
+        await init_redis()
         async with AsyncSessionLocal() as db:
             # Fetch job
             job_uuid = uuid.UUID(job_id)
@@ -49,6 +54,7 @@ async def run_import_async(job_id: str):
         # connections must be dropped before this loop closes, or the next
         # task run fails with "attached to a different loop".
         await engine.dispose()
+        await close_redis()
 
 @celery_app.task(name="app.workers.tasks.process_opening_import.process_opening_import_task")
 def process_opening_import_task(job_id: str):

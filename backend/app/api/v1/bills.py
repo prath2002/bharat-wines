@@ -98,10 +98,12 @@ async def list_bills(
 
     if bill_status:
         stmt = stmt.where(Bill.status == bill_status)
-    if date_from:
-        stmt = stmt.where(Bill.created_at >= date_from)
-    if date_to:
-        stmt = stmt.where(func.date(Bill.created_at) <= date_to)
+    if date_from or date_to:
+        effective_date = func.coalesce(Bill.bill_date, func.date(Bill.created_at))
+        if date_from:
+            stmt = stmt.where(effective_date >= date_from)
+        if date_to:
+            stmt = stmt.where(effective_date <= date_to)
 
     count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
     total = count_result.scalar_one()

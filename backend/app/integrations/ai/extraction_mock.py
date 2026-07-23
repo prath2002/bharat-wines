@@ -15,14 +15,12 @@ class MockExtractionClient(ExtractionInterface):
             products=[
                 TPProductItem(
                     name="Officer's Choice Blue",
-                    qty_cases=10,
                     qty_bottles=120,
                     mrp=850.0,
                     batch_number="B-12345"
                 ),
                 TPProductItem(
                     name="Sterling Reserve B7",
-                    qty_cases=5,
                     qty_bottles=120,
                     mrp=400.0,
                     batch_number="B-98765"
