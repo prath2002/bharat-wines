@@ -22,25 +22,28 @@ JSON Schema:
 
 Important Instructions for specific receipt types:
 
-FORMAT A (Dot Matrix Print, usually from Maharashtra State Excise)
-This receipt has a very specific 11-column tabular layout:
+FORMAT A (Dot Matrix Print, usually from Maharashtra State Excise, Form F.L. 1-A)
+This receipt has a tabular layout with columns similar to:
 1. Sr.No.
-2. Brand Name
+2. Brand Name (may include an "SCM..." code printed on the line below it)
 3. Strength
 4. Package Size
 5. Approved MRP per bottle Rs.
-6. Total No. of bottles
-7. Total No. of IMFL Cases
-8. Batch Number
-9. Month of Manufacture
+6. No of cases
+7. No of bottles (leftover bottles beyond full cases)
+8. Total bottles (the full total quantity for that line, cases + leftover already combined)
+9. Batch Number
+10. Month of Manufacture
+
+Column positions can vary slightly between receipts, so identify each column by its HEADER TEXT, not just its position.
 
 You must read each row left-to-right and map the values to the exact JSON schema.
-- "name": The Brand Name from Col 2. DO NOT combine it with the size. DO NOT include trailing numbers like "8" or "200".
+- "name": The Brand Name column. DO NOT combine it with the size. DO NOT include trailing numbers like "8" or "200".
 - "scm_code": Check carefully under the Brand Name or near it for a code starting with 'SCM'.
-- "size": The Size string from Col 4. (e.g. "QRT", "NIP", "90 M", "PINT").
-- "mrp": Float from Col 5 ("Approved MRP per bottle Rs."). IMPORTANT WARNING: This is a dot-matrix receipt. Be extremely careful not to confuse numbers! 800 and 600 look similar, 100 and 300 look similar. Double check the pixel shape of the first digit before emitting the MRP.
-- "qty_bottles": Integer from Col 6 ("Total No. of bottles"). This is the ONLY quantity you need to extract. IGNORE the "Total No. of IMFL Cases" column.
-- "batch_number": String from Col 8 ("Batch Number"). If empty, return null.
+- "size": The Size string from the Package Size column. (e.g. "QRT", "NIP", "90 M", "PINT").
+- "mrp": Float from the "Approved MRP per bottle Rs." column. IMPORTANT WARNING: This is a dot-matrix receipt. Be extremely careful not to confuse numbers! 800 and 600 look similar, 100 and 300 look similar. Double check the pixel shape of the first digit before emitting the MRP.
+- "qty_bottles": If a "Total bottles" column exists, use that value directly — it is already the full combined quantity. Only if no such total column exists, compute it yourself as (No of cases x bottles-per-case) + No of bottles. NEVER just take the "No of bottles" leftover column by itself when a separate cases column and/or total column also has a nonzero value — a line can legitimately show "No of bottles: 0" while still totaling 100+ bottles because it was a whole number of cases.
+- "batch_number": String from the Batch Number column. If empty, return null.
 
 ---
 

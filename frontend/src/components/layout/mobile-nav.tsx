@@ -1,5 +1,7 @@
+"use client";
+
 import Link from 'next/link';
-import { Home, ScanLine, FileText, Package } from 'lucide-react';
+import { Home, ScanLine, FileText, Package, Receipt } from 'lucide-react';
 
 export function MobileNav() {
   return (
@@ -21,6 +23,10 @@ export function MobileNav() {
       <Link href="/inventory" className="text-muted-foreground hover:text-primary flex flex-col items-center gap-1 transition-colors">
         <Package className="w-5 h-5" />
         <span className="text-[10px] font-medium">Stock</span>
+      </Link>
+      <Link href="/finance/bills" className="text-muted-foreground hover:text-primary flex flex-col items-center gap-1 transition-colors">
+        <Receipt className="w-5 h-5" />
+        <span className="text-[10px] font-medium">Bills</span>
       </Link>
     </div>
   );

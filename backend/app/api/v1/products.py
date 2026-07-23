@@ -50,17 +50,17 @@ async def list_products(
     current_user: User = Depends(require_permissions("products.view"))
 ):
     repo = ProductRepository(db, current_user.business_id)
-    
+
     if search:
-        products = await repo.search_by_name(search, limit=limit)
+        products = await repo.search_by_name(search, skip=skip, limit=limit)
     else:
         products = await repo.get_all(skip=skip, limit=limit)
-        
-    # We should get total count but simplified for V1
+
+    total = await repo.count_all(search=search)
     return {
         "data": products,
-        "total": len(products),
-        "has_more": len(products) == limit
+        "total": total,
+        "has_more": skip + len(products) < total
     }
 
 @router.get("/{id}", response_model=ProductResponse)

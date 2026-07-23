@@ -66,3 +66,8 @@ Thumbs.db
 
 # Logs and generic
 *.log
+
+# Runtime uploads (user-uploaded documents/images, not source)
+backend/uploads/
+backend/app/uploads/
+!backend/app/uploads/.gitkeep

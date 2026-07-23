@@ -7,8 +7,7 @@ from sqlalchemy.future import select
 from app.db.session import AsyncSessionLocal
 from app.models.product import Product, ProductCategory, ProductStatus
 from app.models.stock_movement import StockMovement, MovementType
-from app.services.inventory_service import InventoryService
-from app.integrations.redis import get_redis
+from app.services.inventory_service import invalidate_inventory_cache
 
 REQUIRED_COLUMNS = [
     "Product Name", "Category", "Size (ml)", "MRP", "Purchase Price", "SCM Code", "Opening Quantity"
@@ -34,7 +33,10 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_cols:
         return [], [{"row": 0, "error": f"Missing required columns: {', '.join(missing_cols)}"}]
-    
+
+    # Drop fully blank rows (e.g. trailing formatted-but-empty rows in the sheet)
+    df = df.dropna(how="all")
+
     valid_rows = []
     errors = []
     
@@ -95,6 +97,8 @@ def validate_file(file_path: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, 
 
 def preview(file_path: str) -> List[Dict[str, Any]]:
     df = _parse_file(file_path)
+    # Drop fully blank rows (e.g. trailing formatted-but-empty rows in the sheet)
+    df = df.dropna(how="all")
     # Return first 10 rows safely
     df = df.head(10).fillna("")
     return df.to_dict('records')
@@ -107,12 +111,8 @@ async def process(file_path: str, business_id: uuid.UUID, user_id: uuid.UUID) ->
     products_created = 0
     products_updated = 0
     movements_created = 0
-    
-    redis_client = await get_redis()
-    
+
     async with AsyncSessionLocal() as db:
-        inv_service = InventoryService(db, business_id)
-        
         for row in valid_rows:
             # 1. Try to find product by name and size
             stmt = select(Product).where(
@@ -162,8 +162,7 @@ async def process(file_path: str, business_id: uuid.UUID, user_id: uuid.UUID) ->
                 movements_created += 1
                 
                 # Invalidate cache manually since we aren't using MovementService here for bulk
-                if redis_client:
-                    await inv_service.invalidate_cache(redis_client, product.id)
+                await invalidate_inventory_cache(business_id, product.id)
                     
         await db.commit()
         

@@ -21,9 +21,19 @@ class ProductRepository(BaseRepository[Product]):
         stmt = select(self.model).options(selectinload(self.model.barcodes)).where(
             self.model.business_id == self.business_id,
             self.model.status != ProductStatus.INACTIVE
-        ).offset(skip).limit(limit)
+        ).order_by(self.model.name).offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+    async def count_all(self, search: Optional[str] = None) -> int:
+        stmt = select(func.count()).select_from(self.model).where(
+            self.model.business_id == self.business_id,
+            self.model.status != ProductStatus.INACTIVE
+        )
+        if search:
+            stmt = stmt.where(self.model.name.ilike(f"%{search}%"))
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
 
     async def create(self, obj_in: dict) -> Product:
         obj = await super().create(obj_in)
@@ -50,12 +60,12 @@ class ProductRepository(BaseRepository[Product]):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def search_by_name(self, query: str, limit: int = 20) -> Sequence[Product]:
+    async def search_by_name(self, query: str, skip: int = 0, limit: int = 20) -> Sequence[Product]:
         stmt = select(self.model).options(selectinload(self.model.barcodes)).where(
             self.model.business_id == self.business_id,
             self.model.name.ilike(f"%{query}%"),
             self.model.status != ProductStatus.INACTIVE
-        ).limit(limit)
+        ).order_by(self.model.name).offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return result.scalars().all()
 

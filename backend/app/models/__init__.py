@@ -12,3 +12,6 @@ from app.models.mrp_change_request import MRPChangeRequest, MRPChangeStatus
 from app.models.mrp_history import MRPHistory, MRPChangeSource
 from app.models.unknown_barcode import UnknownBarcode, UnknownBarcodeStatus
 from app.models.import_job import ImportJob, ImportJobStatus
+from app.models.vendor import Vendor
+from app.models.bill import Bill, BillStatus, PaymentStatus
+from app.models.bill_settlement import BillSettlement, SettlementMethod

@@ -3,7 +3,7 @@ import logging
 from sqlalchemy.future import select
 from celery import shared_task
 
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, engine
 from app.models.tp_receipt import TPReceipt, TPStatus
 from app.models.tp_receipt_line import TPReceiptLine
 from app.models.product import Product
@@ -31,13 +31,14 @@ async def process_tp_async(receipt_id: str, file_url: str, business_id: str):
         async with AsyncSessionLocal() as db:
             # 3. Fuzzy Match against catalog
             # First, fetch all products for this business
-            result = await db.execute(select(Product).where(Product.business_id == business_id))
+            result = await db.execute(select(Product).where(Product.business_id == business_id).order_by(Product.name))
             catalog = result.scalars().all()
             
             extracted_names = [p.name for p in extraction_result.products]
+            extracted_sizes = [p.size for p in extraction_result.products]
             logger.info(f"Matching {len(extracted_names)} products against catalog of {len(catalog)} items")
-            
-            match_results = matching_client.match_products(extracted_names, catalog)
+
+            match_results = matching_client.match_products(extracted_names, catalog, extracted_sizes)
             
             # Fetch the receipt to update
             receipt_result = await db.execute(select(TPReceipt).where(TPReceipt.id == receipt_id))
@@ -116,7 +117,18 @@ async def process_tp_async(receipt_id: str, file_url: str, business_id: str):
                 receipt.status = TPStatus.REJECTED
                 await db.commit()
 
+async def _run_and_dispose(receipt_id: str, file_url: str, business_id: str):
+    try:
+        await process_tp_async(receipt_id, file_url, business_id)
+    finally:
+        # The engine's connection pool is created once at import time, but each
+        # Celery task run gets its own event loop via asyncio.run(). asyncpg
+        # connections are bound to the loop they were opened on, so pooled
+        # connections must be dropped before this loop closes, or the next
+        # task run fails with "attached to a different loop".
+        await engine.dispose()
+
 @shared_task
 def process_tp_receipt_task(receipt_id: str, file_url: str, business_id: str):
     """Celery task entrypoint."""
-    asyncio.run(process_tp_async(receipt_id, file_url, business_id))
+    asyncio.run(_run_and_dispose(receipt_id, file_url, business_id))

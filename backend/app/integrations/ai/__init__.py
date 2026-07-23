@@ -30,6 +30,19 @@ def get_extraction_client() -> ExtractionInterface:
     else:
         raise ValueError(f"Unknown LLM_PROVIDER: {provider}")
 
+def get_bill_extraction_client():
+    from .bill_extraction_interface import BillExtractionInterface  # noqa: F401
+    provider = os.getenv("LLM_PROVIDER", "mock")
+
+    if provider == "mock":
+        from .bill_extraction_mock import MockBillExtractionClient
+        return MockBillExtractionClient()
+    elif provider == "openrouter":
+        from .bill_extraction_openrouter import OpenRouterBillExtractionClient
+        return OpenRouterBillExtractionClient()
+    else:
+        raise ValueError(f"Unknown LLM_PROVIDER: {provider}")
+
 def get_matching_client() -> MatchingInterface:
     # We currently only have one implementation for matching (fuzzy string matching)
     from .matching_fuzzy import FuzzyMatchingClient

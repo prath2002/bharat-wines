@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/services/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,95 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+
+function ProductSearchPicker({ onSelect }: { onSelect: (productId: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/products?search=${encodeURIComponent(query)}&limit=15`);
+        setResults(res.data.data);
+      } catch (err) {
+        console.error("Product search failed", err);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const updateCoords = () => {
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    if (rect) {
+      setCoords({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    updateCoords();
+    window.addEventListener("scroll", updateCoords, true);
+    window.addEventListener("resize", updateCoords);
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
+
+  const showDropdown = open && query.trim().length >= 2 && coords;
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div className="relative">
+        <AlertCircle className="h-4 w-4 mr-2 text-amber-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <Input
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); updateCoords(); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Search catalog by product name..."
+          className="h-10 pl-9 text-sm bg-background border-border/50 focus-visible:ring-primary/50 rounded-lg"
+        />
+      </div>
+      {showDropdown && coords && createPortal(
+        <div
+          className="fixed z-[100] max-h-[280px] overflow-y-auto rounded-lg border border-border/50 bg-popover shadow-2xl"
+          style={{ top: coords.top, left: coords.left, width: coords.width }}
+        >
+          {searching ? (
+            <div className="px-3 py-3 text-sm text-muted-foreground">Searching...</div>
+          ) : results.length === 0 ? (
+            <div className="px-3 py-3 text-sm text-muted-foreground">No matching products.</div>
+          ) : (
+            results.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between gap-2 text-popover-foreground"
+                onMouseDown={() => onSelect(c.id)}
+              >
+                <span className="truncate">{c.name}</span>
+                <span className="text-muted-foreground font-mono text-xs flex-shrink-0">{c.size_ml}ml</span>
+              </button>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
 
 export default function TPReviewPage() {
   const params = useParams();
@@ -74,7 +164,6 @@ export default function TPReviewPage() {
 
   useEffect(() => {
     fetchReceipt();
-    fetchCatalog();
   }, [params.id]);
 
   const fetchReceipt = async () => {
@@ -82,7 +171,8 @@ export default function TPReviewPage() {
       const response = await apiClient.get(`/tp/receipts/${params.id}`);
       const data = response.data;
       setReceipt(data);
-      
+      fetchMatchedProducts(data.lines);
+
       if (data.status === "PROCESSING") {
         setTimeout(fetchReceipt, 2000);
       } else {
@@ -94,12 +184,29 @@ export default function TPReviewPage() {
     }
   };
 
-  const fetchCatalog = async () => {
+  // Resolves display details (name, size, category, mrp) for lines that already
+  // have a product_id, by fetching each product directly instead of relying on
+  // a paginated /products list — the catalog can exceed the page size, so a
+  // "find in list" lookup would silently never resolve for products past page 1.
+  const fetchMatchedProducts = async (lines: any[]) => {
+    const idsToFetch = Array.from(
+      new Set(
+        (lines || [])
+          .map((l: any) => l.product_id)
+          .filter((id: string | null) => id && !catalog.some(c => c.id === id))
+      )
+    );
+    if (idsToFetch.length === 0) return;
     try {
-      const response = await apiClient.get("/products");
-      setCatalog(response.data.data);
+      const results = await Promise.all(
+        idsToFetch.map((id) => apiClient.get(`/products/${id}`).then(r => r.data).catch(() => null))
+      );
+      const fetched = results.filter(Boolean);
+      if (fetched.length > 0) {
+        setCatalog(prev => [...prev, ...fetched]);
+      }
     } catch (err) {
-      console.error("Failed to fetch catalog", err);
+      console.error("Failed to fetch matched products", err);
     }
   };
 
@@ -145,17 +252,17 @@ export default function TPReviewPage() {
         mrp: parseFloat(newProductForm.mrp) || 0,
         scm_code: newProductForm.scm_code,
         case_size: parseInt(newProductForm.case_size) || 12,
-        purchase_price: parseFloat(newProductForm.purchase_price) || 0
+        purchase_price: newProductForm.purchase_price ? parseFloat(newProductForm.purchase_price) : null
       };
       
       const productRes = await apiClient.post("/products", productData);
       const newProductId = productRes.data.id;
-      
+
       await apiClient.put(`/tp/receipts/${params.id}/lines/${currentLineId}`, {
         product_id: newProductId
       });
-      
-      await fetchCatalog();
+
+      setCatalog(prev => [...prev, productRes.data]);
       await fetchReceipt();
       
       setIsProductModalOpen(false);
@@ -330,7 +437,7 @@ export default function TPReviewPage() {
                   transition={{ delay: index * 0.05 }}
                   key={line.id} 
                 >
-                  <Card className={`border overflow-hidden shadow-sm transition-all duration-300 ${isMismatch ? 'border-amber-500/40 bg-amber-500/[0.02]' : 'border-border/40 bg-card/60 backdrop-blur-md hover:border-primary/30 hover:shadow-md hover:bg-card/80'}`}>
+                  <Card className={`border shadow-sm transition-all duration-300 ${isMismatch ? 'border-amber-500/40 bg-amber-500/[0.02]' : 'border-border/40 bg-card/60 backdrop-blur-md hover:border-primary/30 hover:shadow-md hover:bg-card/80'}`}>
                     <div className="p-5">
                       {/* Top Row: Extracted Info & Warning */}
                       <div className="flex items-start justify-between mb-4 gap-4">
@@ -430,23 +537,9 @@ export default function TPReviewPage() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Select onValueChange={(val: any) => { if (val) handleMapProduct(line.id, val as string); }}>
-                                <SelectTrigger className="w-full h-10 text-sm bg-background border-border/50 focus:ring-primary/50 transition-all rounded-lg">
-                                  <div className="flex items-center text-muted-foreground">
-                                    <AlertCircle className="h-4 w-4 mr-2 text-amber-500" />
-                                    <SelectValue placeholder="Map to catalog product..." />
-                                  </div>
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                  {catalog.map(c => (
-                                    <SelectItem key={c.id} value={c.id}>
-                                      {c.name} <span className="text-muted-foreground font-mono ml-2 text-xs">({c.size_ml}ml)</span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button 
-                                variant="outline" 
+                              <ProductSearchPicker onSelect={(productId) => handleMapProduct(line.id, productId)} />
+                              <Button
+                                variant="outline"
                                 className="h-10 px-3 border-primary/30 text-primary hover:bg-primary/10 transition-colors flex-shrink-0 rounded-lg"
                                 onClick={() => openCreateModal(line)}
                               >

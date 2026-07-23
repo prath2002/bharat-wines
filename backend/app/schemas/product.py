@@ -27,7 +27,7 @@ class ProductBase(BaseModel):
     mrp: float = Field(..., gt=0)
     scm_code: str = Field(..., max_length=50)
     additional_scm_codes: List[str] = Field(default_factory=list)
-    purchase_price: float = Field(..., ge=0)
+    purchase_price: Optional[float] = Field(None, ge=0)
     case_size: Optional[int] = Field(None, gt=0)
 
 class ProductCreate(ProductBase):

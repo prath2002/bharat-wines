@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UploadCloud, CheckCircle, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiClient } from "@/services/api-client";
 
 export default function ImportsPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -26,26 +27,14 @@ export default function ImportsPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/v1/imports/opening-inventory", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: formData
+      const res = await apiClient.post("/imports/opening-inventory", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      
-      if (!res.ok) throw new Error("Upload failed");
-      
-      const data = await res.json();
-      setJobId(data.import_job_id);
-      
-      // Fetch preview
-      const previewRes = await fetch(`/api/v1/imports/${data.import_job_id}/preview`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      if (previewRes.ok) {
-        setPreviewData(await previewRes.json());
-      }
+
+      setJobId(res.data.import_job_id);
+
+      const previewRes = await apiClient.get(`/imports/${res.data.import_job_id}/preview`);
+      setPreviewData(previewRes.data);
     } catch (err) {
       console.error(err);
       alert("Failed to upload file");
@@ -59,28 +48,21 @@ export default function ImportsPage() {
     setProcessing(true);
     
     try {
-      const res = await fetch(`/api/v1/imports/${jobId}/process`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      
-      if (!res.ok) throw new Error("Processing failed");
-      
+      await apiClient.post(`/imports/${jobId}/process`);
+
       // Poll for status
       const interval = setInterval(async () => {
-        const statusRes = await fetch(`/api/v1/imports/${jobId}/status`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-        });
-        const statusData = await statusRes.json();
-        
+        const statusRes = await apiClient.get(`/imports/${jobId}/status`);
+        const statusData = statusRes.data;
+
         setStatus(statusData);
-        
+
         if (statusData.status === "DONE" || statusData.status === "ERROR") {
           clearInterval(interval);
           setProcessing(false);
         }
       }, 2000);
-      
+
     } catch (err) {
       console.error(err);
       alert("Failed to start processing");
@@ -95,13 +77,13 @@ export default function ImportsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Data Imports</h1>
           <p className="text-muted-foreground mt-1">Bulk upload opening inventory and catalogs.</p>
         </div>
-        <Button variant="outline" onClick={() => window.open('/api/v1/imports/template')}>
+        <Button variant="outline" onClick={() => window.open(`${apiClient.defaults.baseURL}/imports/template`)}>
           Download Template
         </Button>
       </div>
 
       {!jobId && (
-        <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-gray-50/50 hover:bg-gray-50 transition-colors">
+        <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-gray-50/50 text-gray-900 hover:bg-gray-50 transition-colors">
           <UploadCloud className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-semibold mb-2">Upload Spreadsheet</h3>
           <p className="text-sm text-gray-500 mb-6">Drag and drop your .xlsx or .csv file here, or click to browse</p>
@@ -129,7 +111,7 @@ export default function ImportsPage() {
 
       {jobId && !status && previewData.length > 0 && (
         <div className="space-y-4">
-          <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <div className="bg-white text-gray-900 p-6 rounded-xl border shadow-sm">
             <h3 className="text-lg font-semibold mb-4">Preview Data (First 10 Rows)</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -171,7 +153,7 @@ export default function ImportsPage() {
       )}
 
       {status && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm text-center">
+        <div className="bg-white text-gray-900 p-6 rounded-xl border shadow-sm text-center">
           {status.status === "PROCESSING" && (
             <div className="py-8">
               <Loader2 className="mx-auto h-12 w-12 text-blue-500 animate-spin mb-4" />

@@ -9,6 +9,7 @@ class Role(str, enum.Enum):
     ADMIN = "ADMIN"
     STOCK_MANAGER = "STOCK_MANAGER"
     STAFF = "STAFF"
+    FINANCE = "FINANCE"
 
 class User(TenantModel):
     __tablename__ = "users"

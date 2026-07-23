@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreVertical, Edit, Package, Archive, Box } from "lucide-react";
+import { Plus, Search, MoreVertical, Edit, Package, Archive, Box, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,9 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 50;
 
   // Form State
   const [formData, setFormData] = useState({
@@ -43,20 +46,30 @@ export default function ProductsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchProducts();
+    setPage(1);
   }, [search]);
 
+  useEffect(() => {
+    fetchProducts();
+  }, [search, page]);
+
   const fetchProducts = async () => {
+    setLoading(true);
     try {
-      const query = search ? `?search=${encodeURIComponent(search)}` : '';
-      const res = await apiClient.get(`/products${query}`);
-      setProducts(res.data.data);
+      const skip = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({ skip: String(skip), limit: String(PAGE_SIZE) });
+      if (search) params.set("search", search);
+      const res = await apiClient.get(`/products?${params.toString()}`);
+      setProducts([...res.data.data].sort((a: any, b: any) => a.name.localeCompare(b.name)));
+      setTotal(res.data.total);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +93,7 @@ export default function ProductsPage() {
 
       setIsAddModalOpen(false);
       setFormData({ name: "", category: "WINE", size_ml: 750, mrp: "", scm_code: "", case_size: "", purchase_price: "" });
-      fetchProducts();
+      if (page === 1) fetchProducts(); else setPage(1);
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail;
       const errorMessage = Array.isArray(errorDetail) 
@@ -199,6 +212,35 @@ export default function ProductsPage() {
         </div>
       </Card>
 
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between px-1">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} products
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
         {isAddModalOpen && (
           <motion.div 
@@ -256,7 +298,7 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Purchase Price (₹)</label>
-                    <Input required type="number" min="0" step="0.01" className="bg-background" value={formData.purchase_price} onChange={(e) => setFormData({...formData, purchase_price: e.target.value})} />
+                    <Input type="number" min="0" step="0.01" className="bg-background" value={formData.purchase_price} onChange={(e) => setFormData({...formData, purchase_price: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-muted-foreground">SCM Code</label>
