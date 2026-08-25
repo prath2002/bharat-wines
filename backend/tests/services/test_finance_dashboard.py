@@ -92,3 +92,46 @@ def test_overdue_detection():
     summary = summarize_bills(bills)
     assert len(summary["attention"]["overdue"]) == 1
     assert summary["attention"]["overdue"][0]["days_overdue"] == 15
+
+def test_totals_include_payable_matching_outstanding():
+    v = _vendor("Payable Co")
+    bills = [_bill(vendor=v, total=8000.0, settlements=[_settlement(3000.0, date(2026, 7, 1))])]
+    summary = summarize_bills(bills)
+    assert summary["totals"]["payable"] == summary["totals"]["outstanding"] == 5000.0
+
+def test_due_soon_buckets_by_due_date_window():
+    v = _vendor("Due Soon Co")
+    today = date.today()
+    bills = [
+        _bill(vendor=v, total=1000.0, due_date=today),                       # due today
+        _bill(vendor=v, total=2000.0, due_date=today + timedelta(days=5)),   # due this week
+        _bill(vendor=v, total=3000.0, due_date=today + timedelta(days=20)),  # due this month
+        _bill(vendor=v, total=4000.0, due_date=today + timedelta(days=90)),  # far out, excluded
+    ]
+    summary = summarize_bills(bills)
+    assert summary["totals"]["due_today"] == 1000.0
+    assert summary["totals"]["due_this_week"] == 3000.0   # today + within 7 days
+    assert summary["totals"]["due_this_month"] == 6000.0  # today + within 30 days
+
+def test_due_soon_excludes_fully_paid_bills():
+    v = _vendor("Paid Up Co")
+    today = date.today()
+    bills = [_bill(vendor=v, total=1000.0, due_date=today, settlements=[_settlement(1000.0, today)])]
+    summary = summarize_bills(bills)
+    assert summary["totals"]["due_today"] == 0.0
+
+def test_aging_buckets_group_overdue_outstanding_by_days():
+    v = _vendor("Aging Co")
+    today = date.today()
+    bills = [
+        _bill(vendor=v, total=1000.0, due_date=today - timedelta(days=10)),  # 0-30
+        _bill(vendor=v, total=2000.0, due_date=today - timedelta(days=45)),  # 31-60
+        _bill(vendor=v, total=3000.0, due_date=today - timedelta(days=75)),  # 61-90
+        _bill(vendor=v, total=4000.0, due_date=today - timedelta(days=120)),  # 90+
+        _bill(vendor=v, total=5000.0, due_date=today + timedelta(days=10)),  # not yet due, excluded
+    ]
+    summary = summarize_bills(bills)
+    assert summary["aging"]["0-30"] == 1000.0
+    assert summary["aging"]["31-60"] == 2000.0
+    assert summary["aging"]["61-90"] == 3000.0
+    assert summary["aging"]["90+"] == 4000.0

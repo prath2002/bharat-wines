@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 function ProductSearchPicker({ onSelect }: { onSelect: (productId: string) => void }) {
   const [query, setQuery] = useState("");
@@ -156,7 +157,7 @@ export default function TPReviewPage() {
       setEditingLineId(null);
       await fetchReceipt();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to update line");
+      toast.error(err.response?.data?.detail || "Failed to update line");
     } finally {
       setIsSavingLine(false);
     }
@@ -227,7 +228,7 @@ export default function TPReviewPage() {
       await apiClient.post(`/tp/receipts/${params.id}/reject`);
       router.push("/tp");
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to reject receipt");
+      toast.error(err.response?.data?.detail || "Failed to reject receipt");
     }
   };
 
@@ -238,7 +239,7 @@ export default function TPReviewPage() {
       });
       await fetchReceipt();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to map product");
+      toast.error(err.response?.data?.detail || "Failed to map product");
     }
   };
 
@@ -267,7 +268,7 @@ export default function TPReviewPage() {
       
       setIsProductModalOpen(false);
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to create product");
+      toast.error(err.response?.data?.detail || "Failed to create product");
     } finally {
       setCreatingProduct(false);
     }

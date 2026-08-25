@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.models.bill import BillStatus, PaymentStatus
+from app.models.bill import BillStatus, DueDateSource, PaymentStatus
 from app.models.bill_settlement import SettlementMethod
 
 
@@ -11,21 +11,10 @@ class ChargeItem(BaseModel):
     label: str
     amount: float
 
-class VendorResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    name: str
-    gstin: str | None = None
-    created_at: datetime
-
-class VendorCreateRequest(BaseModel):
-    name: str
-    gstin: str | None = None
-
-class VendorUpdateRequest(BaseModel):
-    name: str | None = None
-    gstin: str | None = None
+class DueDateRecommendationResponse(BaseModel):
+    due_date: date | None = None
+    source: DueDateSource | None = None
+    payment_terms_days: int | None = None
 
 class SettlementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -63,10 +52,31 @@ class BillUpdateRequest(BaseModel):
     charges: list[ChargeItem] | None = None
     total_amount: float | None = None
     due_date: date | None = None
+    due_date_source: DueDateSource | None = None
     notes: str | None = None
 
 class VerifyRequest(BaseModel):
     vendor_name: str | None = None
+
+class BillManualCreateRequest(BaseModel):
+    bill_number: str | None = None
+    bill_date: date | None = None
+    vendor_id: uuid.UUID | None = None
+    vendor_name: str | None = None
+    subtotal: float | None = None
+    discount_amount: float = 0
+    charges: list[ChargeItem] | None = None
+    total_amount: float
+    due_date: date | None = None
+    due_date_source: DueDateSource | None = None
+    notes: str | None = None
+
+    @field_validator("total_amount")
+    @classmethod
+    def total_amount_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("total_amount must be positive")
+        return v
 
 class BillResponse(BaseModel):
     """Full projection for FINANCE / ADMIN."""
@@ -77,7 +87,7 @@ class BillResponse(BaseModel):
     vendor_name: str | None = None
     extracted_vendor_name: str | None = None
     uploaded_by: uuid.UUID
-    file_url: str
+    file_url: str | None = None
     bill_number: str | None = None
     bill_date: date | None = None
     subtotal: float | None = None
@@ -89,6 +99,7 @@ class BillResponse(BaseModel):
     payment_status: PaymentStatus
     amount_paid: float = 0
     due_date: date | None = None
+    due_date_source: DueDateSource | None = None
     notes: str | None = None
     verified_at: datetime | None = None
     created_at: datetime
@@ -102,6 +113,6 @@ class BillLimitedResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    file_url: str
+    file_url: str | None = None
     status: BillStatus
     created_at: datetime

@@ -26,6 +26,8 @@ import {
   addSettlement, deleteSettlement, getBill, listVendors, rejectBill, updateBill, verifyBill,
 } from "@/services/bills";
 import { formatINR, formatINRPrecise } from "@/utils/currency";
+import { DocumentsCard, PaymentDocumentsInline } from "@/components/finance/documents-card";
+import { PaymentSchedulesCard } from "@/components/finance/payment-schedules-card";
 
 const METHOD_ICONS: Record<SettlementMethod, React.ReactNode> = {
   BANK_TRANSFER: <Landmark className="h-4 w-4" />,
@@ -215,7 +217,12 @@ export default function BillReviewPage() {
         {/* Bill image */}
         <Card className="border-border/50 overflow-hidden lg:sticky lg:top-6">
           <CardContent className="p-0 bg-muted/30">
-            {/\.(jpe?g|png|webp)$/i.test(bill.file_url) ? (
+            {!bill.file_url ? (
+              <div className="p-16 text-center text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/60" />
+                <p>Entered manually — no scanned document attached.</p>
+              </div>
+            ) : /\.(jpe?g|png|webp)$/i.test(bill.file_url) ? (
               <a href={`${apiBase}${bill.file_url}`} target="_blank" rel="noreferrer" title="Open full size">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`${apiBase}${bill.file_url}`} alt="Uploaded bill" className="w-full h-auto max-h-[80vh] object-contain" />
@@ -431,6 +438,14 @@ export default function BillReviewPage() {
               onChanged={invalidate}
             />
           )}
+
+          {/* Payment scheduling — only meaningful once the bill is verified */}
+          {bill.status === "VERIFIED" && (
+            <PaymentSchedulesCard billId={bill.id} dueDate={bill.due_date} outstandingAmount={outstanding} />
+          )}
+
+          {/* Documents */}
+          <DocumentsCard billId={bill.id} />
         </div>
       </div>
     </div>
@@ -449,7 +464,6 @@ function SettlementsCard({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payment, setPayment] = useState({
-    amount: "",
     paid_on: format(new Date(), "yyyy-MM-dd"),
     method: "BANK_TRANSFER" as SettlementMethod,
     reference: "",
@@ -457,17 +471,17 @@ function SettlementsCard({
   });
 
   const handleOpenChange = (next: boolean) => {
-    if (next) setPayment((p) => ({ ...p, amount: outstanding > 0 ? String(outstanding) : "" }));
+    if (next) setPayment((p) => ({ ...p, reference: "" }));
     setOpen(next);
   };
 
   const addMutation = useMutation({
     mutationFn: () =>
       addSettlement(bill.id, {
-        amount: parseFloat(payment.amount),
+        amount: outstanding,
         paid_on: payment.paid_on,
         method: payment.method,
-        reference: payment.reference || undefined,
+        reference: payment.reference,
         notes: payment.notes || undefined,
       }),
     onSuccess: () => { setError(null); setOpen(false); onChanged(); },
@@ -504,8 +518,7 @@ function SettlementsCard({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="pay_amount">Amount (₹)</Label>
-                  <Input id="pay_amount" type="number" inputMode="decimal" value={payment.amount}
-                    onChange={(e) => setPayment({ ...payment, amount: e.target.value })} />
+                  <Input id="pay_amount" value={`₹${Intl.NumberFormat("en-IN").format(outstanding)}`} disabled className="font-medium" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="pay_date">Paid on</Label>
@@ -513,6 +526,7 @@ function SettlementsCard({
                     onChange={(e) => setPayment({ ...payment, paid_on: e.target.value })} />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">Bills are paid in full — partial payments aren&apos;t supported.</p>
               <div className="space-y-1.5">
                 <Label htmlFor="pay_method">Method</Label>
                 <select
@@ -527,8 +541,8 @@ function SettlementsCard({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pay_ref">Reference (UTR / cheque no.)</Label>
-                <Input id="pay_ref" value={payment.reference} placeholder="Optional"
+                <Label htmlFor="pay_ref">Reference ID (UTR / cheque no. / txn ID)</Label>
+                <Input id="pay_ref" value={payment.reference} placeholder="Required"
                   onChange={(e) => setPayment({ ...payment, reference: e.target.value })} />
               </div>
               <div className="space-y-1.5">
@@ -539,7 +553,7 @@ function SettlementsCard({
               <Button
                 className="w-full"
                 onClick={() => addMutation.mutate()}
-                disabled={addMutation.isPending || !payment.amount || parseFloat(payment.amount) <= 0}
+                disabled={addMutation.isPending || outstanding <= 0 || !payment.reference.trim()}
               >
                 {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save payment
@@ -573,25 +587,28 @@ function SettlementsCard({
         ) : (
           <ul className="divide-y divide-border/50">
             {bill.settlements.map((s) => (
-              <li key={s.id} className="py-3 flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                  {METHOD_ICONS[s.method]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground tabular-nums">{formatINRPrecise(s.amount)}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {format(new Date(s.paid_on), "d MMM yyyy")} · {METHOD_LABELS[s.method]}
-                    {s.reference ? ` · ${s.reference}` : ""}
+              <li key={s.id} className="py-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                    {METHOD_ICONS[s.method]}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground tabular-nums">{formatINRPrecise(s.amount)}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {format(new Date(s.paid_on), "d MMM yyyy")} · {METHOD_LABELS[s.method]}
+                      {s.reference ? ` · ${s.reference}` : ""}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost" size="icon" aria-label="Delete payment"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => removeMutation.mutate(s.id)}
+                    disabled={removeMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost" size="icon" aria-label="Delete payment"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => removeMutation.mutate(s.id)}
-                  disabled={removeMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <PaymentDocumentsInline paymentId={s.id} />
               </li>
             ))}
           </ul>

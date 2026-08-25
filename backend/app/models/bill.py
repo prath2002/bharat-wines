@@ -20,12 +20,20 @@ class PaymentStatus(str, enum.Enum):
     PARTIALLY_PAID = "PARTIALLY_PAID"
     PAID = "PAID"
 
+class DueDateSource(str, enum.Enum):
+    VENDOR_DEFAULT = "VENDOR_DEFAULT"
+    INVOICE = "INVOICE"
+    MANUAL = "MANUAL"
+    CONTRACT = "CONTRACT"
+    SYSTEM_CALCULATED = "SYSTEM_CALCULATED"
+
 class Bill(TenantModel):
     __tablename__ = "bills"
 
     vendor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vendors.id"), nullable=True)
     uploaded_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    file_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Nullable: manually entered bills may have no attached file.
+    file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     bill_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     bill_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -48,6 +56,9 @@ class Bill(TenantModel):
         Enum(PaymentStatus, name="payment_status_enum", native_enum=True), default=PaymentStatus.UNPAID
     )
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_date_source: Mapped[DueDateSource | None] = mapped_column(
+        Enum(DueDateSource, name="due_date_source_enum", native_enum=True), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     verified_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
@@ -56,6 +67,9 @@ class Bill(TenantModel):
     vendor: Mapped["Vendor"] = relationship("Vendor")
     settlements: Mapped[list["BillSettlement"]] = relationship(
         "BillSettlement", back_populates="bill", cascade="all, delete-orphan"
+    )
+    payment_schedules: Mapped[list["PaymentSchedule"]] = relationship(
+        "PaymentSchedule", back_populates="bill", cascade="all, delete-orphan"
     )
 
     __table_args__ = (

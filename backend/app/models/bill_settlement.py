@@ -19,6 +19,11 @@ class BillSettlement(TenantModel):
     __tablename__ = "bill_settlements"
 
     bill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bills.id"), nullable=False, index=True)
+    # Set when this payment fulfills a PaymentSchedule; NULL for a direct/instant payment
+    # with no prior scheduling step.
+    payment_schedule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("payment_schedules.id"), nullable=True, index=True
+    )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     paid_on: Mapped[date] = mapped_column(Date, nullable=False)
     method: Mapped[SettlementMethod] = mapped_column(

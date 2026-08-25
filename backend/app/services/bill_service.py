@@ -1,12 +1,12 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.models.bill import Bill, BillStatus, PaymentStatus
+from app.models.bill import Bill, BillStatus, DueDateSource, PaymentStatus
 from app.models.bill_settlement import BillSettlement
 from app.models.vendor import Vendor
 from app.services.file_service import upload_file
@@ -17,7 +17,8 @@ from app.workers.bill_processing import (
 )
 
 EDITABLE_FIELDS = {"bill_number", "bill_date", "vendor_id", "subtotal", "discount_amount",
-                   "charges", "total_amount", "due_date", "notes", "extracted_vendor_name"}
+                   "charges", "total_amount", "due_date", "due_date_source", "notes",
+                   "extracted_vendor_name"}
 
 def derive_payment_status(total_amount, settlements: list) -> PaymentStatus:
     paid = sum(Decimal(str(s.amount)) for s in settlements)
@@ -67,6 +68,69 @@ async def update_bill_fields(bill_id: uuid.UUID, payload: dict, db: AsyncSession
     # Total may have changed; re-derive payment status
     bill.payment_status = derive_payment_status(bill.total_amount, bill.settlements)
 
+    await db.commit()
+    await db.refresh(bill)
+    return bill
+
+def due_date_from_terms(bill_date: date, payment_terms_days: int) -> date:
+    return bill_date + timedelta(days=payment_terms_days)
+
+async def recommend_due_date(
+    vendor_id: uuid.UUID | None, bill_date: date, db: AsyncSession, business_id: uuid.UUID
+) -> dict:
+    """Suggest a due date from the vendor's default payment terms. Returns
+    an empty recommendation if no vendor is given or the vendor has no
+    payment_terms_days set — the caller decides the fallback (usually MANUAL)."""
+    if vendor_id:
+        result = await db.execute(
+            select(Vendor).where(Vendor.id == vendor_id, Vendor.business_id == business_id)
+        )
+        vendor = result.scalar_one_or_none()
+        if vendor and vendor.payment_terms_days is not None:
+            return {
+                "due_date": due_date_from_terms(bill_date, vendor.payment_terms_days),
+                "source": DueDateSource.VENDOR_DEFAULT,
+                "payment_terms_days": vendor.payment_terms_days,
+            }
+    return {"due_date": None, "source": None, "payment_terms_days": None}
+
+async def create_manual_bill(
+    payload: dict, db: AsyncSession, business_id: uuid.UUID, user_id: uuid.UUID, file_url: str | None = None
+) -> Bill:
+    """Finance/Admin-entered bill with no OCR step. Lands directly as VERIFIED
+    (no separate verify click) — Finance typed the numbers deliberately, so
+    there's nothing left to review. Applies the same checks the verify step
+    used to enforce (vendor required, total required, no mismatch), since
+    that step no longer runs for these bills."""
+    bill = Bill(
+        business_id=business_id,
+        uploaded_by=user_id,
+        file_url=file_url,
+        status=BillStatus.DRAFT,
+    )
+
+    vendor_name = payload.pop("vendor_name", None)
+    for field in EDITABLE_FIELDS & payload.keys():
+        setattr(bill, field, payload[field])
+
+    if vendor_name and not bill.vendor_id:
+        vendor = await get_or_create_vendor(vendor_name, db, business_id)
+        bill.vendor_id = vendor.id
+
+    if not bill.vendor_id:
+        raise ValueError("Bill must have a vendor")
+
+    _, mismatch = compute_total_check(bill.subtotal, bill.discount_amount, bill.charges, bill.total_amount)
+    bill.has_total_mismatch = mismatch
+    if mismatch:
+        raise ValueError("Extracted total does not match computed total; fix the amounts before saving")
+
+    bill.status = BillStatus.VERIFIED
+    bill.verified_by = user_id
+    bill.verified_at = datetime.now(UTC)
+    bill.payment_status = derive_payment_status(bill.total_amount, [])
+
+    db.add(bill)
     await db.commit()
     await db.refresh(bill)
     return bill
@@ -129,15 +193,16 @@ async def add_settlement(bill_id: uuid.UUID, data: dict, db: AsyncSession, busin
     if bill.status != BillStatus.VERIFIED:
         raise ValueError("Payments can only be recorded against verified bills")
 
+    # No partial payments: a bill is paid in full or not at all.
     amount = Decimal(str(data["amount"]))
     if amount <= 0:
         raise ValueError("Payment amount must be positive")
 
     already_paid = sum(Decimal(str(s.amount)) for s in bill.settlements)
-    if bill.total_amount is not None and already_paid + amount > Decimal(str(bill.total_amount)):
-        raise ValueError(
-            f"Payment exceeds bill total: {already_paid + amount} > {bill.total_amount}"
-        )
+    if already_paid > 0:
+        raise ValueError("This bill has already been paid")
+    if bill.total_amount is not None and amount != Decimal(str(bill.total_amount)):
+        raise ValueError(f"Payment amount must be the full bill amount: {bill.total_amount}")
 
     settlement = BillSettlement(
         business_id=business_id,

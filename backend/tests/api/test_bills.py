@@ -31,5 +31,7 @@ def test_limited_projection_has_no_financial_fields():
 async def test_bills_endpoints_require_auth(client: AsyncClient):
     assert (await client.get("/api/v1/bills")).status_code == 401
     assert (await client.get("/api/v1/bills/summary")).status_code == 401
+    assert (await client.get("/api/v1/bills/due-date-recommendation?bill_date=2026-08-01")).status_code == 401
     assert (await client.post("/api/v1/bills/upload")).status_code == 401
+    assert (await client.post("/api/v1/bills/manual")).status_code == 401
     assert (await client.get("/api/v1/vendors")).status_code == 401

@@ -7,6 +7,7 @@ import {
   BillListResponse,
   BillSettlement,
   ChargeItem,
+  DueDateSource,
   FinanceSummary,
   SettlementMethod,
   Vendor,
@@ -44,6 +45,7 @@ export interface BillUpdatePayload {
   charges?: ChargeItem[];
   total_amount?: number | null;
   due_date?: string | null;
+  due_date_source?: DueDateSource | null;
   notes?: string | null;
 }
 
@@ -77,6 +79,41 @@ export async function addSettlement(billId: string, payload: SettlementPayload):
 
 export async function deleteSettlement(settlementId: string): Promise<void> {
   await apiClient.delete(`/bills/settlements/${settlementId}`);
+}
+
+export interface BillManualCreatePayload {
+  bill_number?: string | null;
+  bill_date?: string | null;
+  vendor_id?: string | null;
+  vendor_name?: string | null;
+  subtotal?: number | null;
+  discount_amount?: number;
+  charges?: ChargeItem[];
+  total_amount: number;
+  due_date?: string | null;
+  due_date_source?: DueDateSource | null;
+  notes?: string | null;
+}
+
+export async function createManualBill(payload: BillManualCreatePayload, file?: File | null): Promise<Bill> {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  if (file) formData.append('file', file);
+  const res = await apiClient.post('/bills/manual', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+}
+
+export interface DueDateRecommendation {
+  due_date: string | null;
+  source: DueDateSource | null;
+  payment_terms_days: number | null;
+}
+
+export async function getDueDateRecommendation(vendorId: string, billDate: string): Promise<DueDateRecommendation> {
+  const res = await apiClient.get('/bills/due-date-recommendation', { params: { vendor_id: vendorId, bill_date: billDate } });
+  return res.data;
 }
 
 export async function listVendors(): Promise<Vendor[]> {

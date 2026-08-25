@@ -19,7 +19,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.api.v1 import auth, audit_logs, products, barcodes, movements, inventory, reports, imports, unknown_barcodes, tp, mrp, scm, users, bills, vendors
+from app.api.v1 import auth, audit_logs, products, barcodes, movements, inventory, reports, imports, unknown_barcodes, tp, mrp, scm, users, bills, vendors, payment_schedules, payment_approvals, documents, finance
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +44,10 @@ app.include_router(scm.router, prefix="/api/v1/scm", tags=["SCM"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(bills.router, prefix="/api/v1/bills", tags=["Bills"])
 app.include_router(vendors.router, prefix="/api/v1/vendors", tags=["Vendors"])
+app.include_router(payment_schedules.router, prefix="/api/v1", tags=["Payment Schedules"])
+app.include_router(payment_approvals.router, prefix="/api/v1", tags=["Payment Approvals"])
+app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
+app.include_router(finance.router, prefix="/api/v1/finance", tags=["Finance Views"])
 
 import os
 os.makedirs("uploads", exist_ok=True)

@@ -11,7 +11,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatStrip } from "@/components/finance/stat-strip";
+import { KpiStrip } from "@/components/finance/kpi-strip";
+import { QuickLinks } from "@/components/finance/quick-links";
+import { UpcomingPayments } from "@/components/finance/upcoming-payments";
 import { CashoutChart } from "@/components/finance/cashout-chart";
 import { PaymentBreakdown } from "@/components/finance/payment-breakdown";
 import { VendorTable } from "@/components/finance/vendor-table";
@@ -164,7 +166,9 @@ export default function FinanceDashboardPage() {
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          <StatStrip summary={summary} />
+          <KpiStrip summary={summary} />
+
+          <QuickLinks />
 
           <div className="grid lg:grid-cols-5 gap-6 items-stretch">
             <Card className="border-border/50 bg-card/80 lg:col-span-3">
@@ -187,14 +191,21 @@ export default function FinanceDashboardPage() {
           </div>
 
           <div className="grid xl:grid-cols-3 gap-6 items-start">
-            <Card className="border-border/50 bg-card/80 xl:col-span-2">
-              <CardHeader className="border-b border-border/50">
-                <CardTitle className="text-base">By company</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <VendorTable vendors={summary.vendors} />
-              </CardContent>
-            </Card>
+            <div className="xl:col-span-2 space-y-6">
+              <UpcomingPayments vendorId={vendorId || undefined} daysAhead={7} maxRows={4} />
+
+              <Card className="border-border/50 bg-card/80">
+                <CardHeader className="border-b border-border/50 flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-base">Top companies by outstanding</CardTitle>
+                  <Link href="/finance/vendors" className="text-sm text-primary hover:underline underline-offset-4">
+                    View all vendors →
+                  </Link>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <VendorTable vendors={summary.vendors} limit={5} />
+                </CardContent>
+              </Card>
+            </div>
 
             <AttentionRail summary={summary} />
           </div>
