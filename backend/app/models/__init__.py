@@ -13,5 +13,9 @@ from app.models.mrp_history import MRPHistory, MRPChangeSource
 from app.models.unknown_barcode import UnknownBarcode, UnknownBarcodeStatus
 from app.models.import_job import ImportJob, ImportJobStatus
 from app.models.vendor import Vendor
-from app.models.bill import Bill, BillStatus, PaymentStatus
+from app.models.bill import Bill, BillStatus, PaymentStatus, DueDateSource
+from app.models.approval_rule import ApprovalRule
+from app.models.payment_schedule import PaymentSchedule, PaymentScheduleStatus
+from app.models.payment_approval import PaymentApproval, ApprovalStatus
 from app.models.bill_settlement import BillSettlement, SettlementMethod
+from app.models.document import Document, DocumentOwnerType, DocumentType

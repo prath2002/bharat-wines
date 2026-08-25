@@ -17,15 +17,15 @@ function agingClass(days: number): string {
   return "text-muted-foreground";
 }
 
-export function VendorTable({ vendors }: { vendors: VendorRow[] }) {
+export function VendorTable({ vendors, limit }: { vendors: VendorRow[]; limit?: number }) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("outstanding");
   const [desc, setDesc] = useState(true);
 
-  const sorted = useMemo(
-    () => [...vendors].sort((a, b) => (desc ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey])),
-    [vendors, sortKey, desc]
-  );
+  const sorted = useMemo(() => {
+    const all = [...vendors].sort((a, b) => (desc ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey]));
+    return limit ? all.slice(0, limit) : all;
+  }, [vendors, sortKey, desc, limit]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) setDesc(!desc);

@@ -101,6 +101,36 @@ function FinanceFilters({
           onChange={(e) => setFilters({ ...filters, date_to: e.target.value || undefined })}
         />
       </label>
+
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        Min amount
+        <input
+          type="number"
+          className={selectClass}
+          value={filters.amount_min ?? ""}
+          onChange={(e) => setFilters({ ...filters, amount_min: e.target.value ? parseFloat(e.target.value) : undefined })}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        Max amount
+        <input
+          type="number"
+          className={selectClass}
+          value={filters.amount_max ?? ""}
+          onChange={(e) => setFilters({ ...filters, amount_max: e.target.value ? parseFloat(e.target.value) : undefined })}
+        />
+      </label>
+
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground h-9">
+        <input
+          type="checkbox"
+          className="rounded border-input"
+          checked={filters.overdue ?? false}
+          onChange={(e) => setFilters({ ...filters, overdue: e.target.checked || undefined })}
+        />
+        Overdue only
+      </label>
     </div>
   );
 }
@@ -155,17 +185,30 @@ function BillsPageInner() {
               : "Photograph supplier bills as they arrive. The finance team takes it from there."}
           </p>
         </div>
-        <Link href="/finance/bills/upload" className="w-full md:w-auto">
-          <Button className="w-full md:w-auto shadow-[0_0_15px_var(--color-primary)] bg-gradient-to-r from-primary to-primary/80 hover:scale-105 active:scale-95 transition-all">
-            <Plus className="mr-2 h-4 w-4" /> Upload Bill
-          </Button>
-        </Link>
+        <div className="flex gap-3 w-full md:w-auto">
+          {canViewFinancials && (
+            <Link href="/finance/bills/manual" className="w-full md:w-auto">
+              <Button variant="outline" className="w-full md:w-auto">
+                <Plus className="mr-2 h-4 w-4" /> Manual Entry
+              </Button>
+            </Link>
+          )}
+          <Link href="/finance/bills/upload" className="w-full md:w-auto">
+            <Button className="w-full md:w-auto shadow-[0_0_15px_var(--color-primary)] bg-gradient-to-r from-primary to-primary/80 hover:scale-105 active:scale-95 transition-all">
+              <Plus className="mr-2 h-4 w-4" /> Upload Bill
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {canViewFinancials && (
         <Card className="border-border/50 bg-card/80">
           <CardContent className="p-4">
-            <FinanceFilters filters={filters} setFilters={setFilters} vendors={vendorsQuery.data ?? []} />
+            <FinanceFilters
+              filters={filters}
+              setFilters={setFilters}
+              vendors={vendorsQuery.data ?? []}
+            />
           </CardContent>
         </Card>
       )}
@@ -214,7 +257,7 @@ function BillsPageInner() {
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 hover:bg-muted/40 transition-colors group gap-4">
                     <div className="flex gap-5 items-center w-full md:w-auto min-w-0">
                       <div className="h-14 w-14 shrink-0 rounded-xl bg-muted/60 border border-border/50 overflow-hidden flex items-center justify-center text-primary">
-                        {/\.(jpe?g|png|webp)$/i.test(item.file_url) ? (
+                        {item.file_url && /\.(jpe?g|png|webp)$/i.test(item.file_url) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={`${apiBase}${item.file_url}`}

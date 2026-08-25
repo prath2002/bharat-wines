@@ -1,8 +1,8 @@
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,13 +14,16 @@ from app.models.user import User
 from app.schemas.bill import (
     BillDetailResponse,
     BillLimitedResponse,
+    BillManualCreateRequest,
     BillResponse,
     BillUpdateRequest,
+    DueDateRecommendationResponse,
     SettlementCreateRequest,
     SettlementResponse,
     VerifyRequest,
 )
-from app.services import bill_service
+from app.models.audit_log import ActionEnum
+from app.services import audit_service, bill_service, file_service
 from app.services.finance_dashboard_service import get_finance_summary
 
 router = APIRouter()
@@ -54,9 +57,29 @@ async def upload_bill(
         raise HTTPException(status_code=400, detail="User not associated with a business")
     try:
         bill = await bill_service.upload_bill(file, db, current_user.business_id, current_user.id)
+        await audit_service.record(db, current_user.id, current_user.business_id, ActionEnum.CREATE, "bill", bill.id)
         return {"id": bill.id, "status": bill.status.name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+@router.post("/manual", response_model=BillResponse, status_code=status.HTTP_201_CREATED)
+async def create_manual_bill(
+    payload: str = Form(...),
+    file: UploadFile | None = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permissions("bills.review"))
+):
+    data = BillManualCreateRequest.model_validate_json(payload)
+    file_url = await file_service.upload_file(file) if file else None
+    try:
+        bill = await bill_service.create_manual_bill(
+            data.model_dump(exclude_unset=True), db, current_user.business_id, current_user.id, file_url
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    await db.refresh(bill, ["settlements", "vendor"])
+    await audit_service.record(db, current_user.id, current_user.business_id, ActionEnum.CREATE, "bill", bill.id)
+    return _full_response(bill)
 
 @router.get("/summary")
 async def finance_summary(
@@ -68,12 +91,24 @@ async def finance_summary(
 ):
     return await get_finance_summary(db, current_user.business_id, date_from, date_to, vendor_id)
 
+@router.get("/due-date-recommendation", response_model=DueDateRecommendationResponse)
+async def due_date_recommendation(
+    bill_date: date = Query(...),
+    vendor_id: uuid.UUID | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permissions("bills.review"))
+):
+    return await bill_service.recommend_due_date(vendor_id, bill_date, db, current_user.business_id)
+
 @router.get("")
 async def list_bills(
     bill_status: BillStatus | None = Query(None, alias="status"),
     payment_status: PaymentStatus | None = Query(None),
     vendor_id: uuid.UUID | None = Query(None),
     uploaded_by: uuid.UUID | None = Query(None),
+    amount_min: float | None = Query(None),
+    amount_max: float | None = Query(None),
+    overdue: bool | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     limit: int = Query(50, le=200),
@@ -95,6 +130,14 @@ async def list_bills(
             stmt = stmt.where(Bill.payment_status == payment_status)
         if uploaded_by:
             stmt = stmt.where(Bill.uploaded_by == uploaded_by)
+        if amount_min is not None:
+            stmt = stmt.where(Bill.total_amount >= amount_min)
+        if amount_max is not None:
+            stmt = stmt.where(Bill.total_amount <= amount_max)
+        if overdue:
+            stmt = stmt.where(
+                Bill.due_date < datetime.now(UTC).date(), Bill.payment_status != PaymentStatus.PAID
+            )
 
     if bill_status:
         stmt = stmt.where(Bill.status == bill_status)
@@ -110,7 +153,9 @@ async def list_bills(
 
     stmt = stmt.order_by(Bill.created_at.desc()).limit(limit).offset(offset)
     if view_all:
-        stmt = stmt.options(selectinload(Bill.settlements), selectinload(Bill.vendor))
+        stmt = stmt.options(
+            selectinload(Bill.settlements), selectinload(Bill.vendor),
+        )
 
     result = await db.execute(stmt)
     bills = result.scalars().all()
@@ -130,7 +175,9 @@ async def get_bill(
 ):
     stmt = (
         select(Bill)
-        .options(selectinload(Bill.settlements), selectinload(Bill.vendor))
+        .options(
+            selectinload(Bill.settlements), selectinload(Bill.vendor),
+        )
         .where(Bill.id == bill_id, Bill.business_id == current_user.business_id)
     )
     result = await db.execute(stmt)
@@ -163,6 +210,7 @@ async def update_bill(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
+    await audit_service.record(db, current_user.id, current_user.business_id, ActionEnum.UPDATE, "bill", bill.id, data)
     return _full_response(bill)
 
 @router.post("/{bill_id}/verify", response_model=BillResponse)
@@ -178,6 +226,9 @@ async def verify_bill(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
+    await audit_service.record(
+        db, current_user.id, current_user.business_id, ActionEnum.APPROVE, "bill", bill.id, {"status": "VERIFIED"}
+    )
     return _full_response(bill)
 
 @router.post("/{bill_id}/reject", response_model=BillResponse)
@@ -191,6 +242,9 @@ async def reject_bill(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     await db.refresh(bill, ["settlements", "vendor"])
+    await audit_service.record(
+        db, current_user.id, current_user.business_id, ActionEnum.REJECT, "bill", bill.id, {"status": "REJECTED"}
+    )
     return _full_response(bill)
 
 @router.post("/{bill_id}/settlements", response_model=SettlementResponse, status_code=status.HTTP_201_CREATED)
@@ -206,6 +260,9 @@ async def add_settlement(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    await audit_service.record(
+        db, current_user.id, current_user.business_id, ActionEnum.CREATE, "payment", settlement.id
+    )
     return settlement
 
 @router.delete("/settlements/{settlement_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -218,3 +275,6 @@ async def delete_settlement(
         await bill_service.delete_settlement(settlement_id, db, current_user.business_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await audit_service.record(
+        db, current_user.id, current_user.business_id, ActionEnum.DELETE, "payment", settlement_id
+    )
