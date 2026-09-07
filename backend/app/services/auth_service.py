@@ -1,17 +1,40 @@
-import uuid
-from datetime import datetime, timedelta, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import hash_password, verify_password, create_access_token, generate_refresh_token
 from app.core.config import settings
+from app.core.security import (
+    create_access_token,
+    generate_refresh_token,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
 from app.models.business import Business
-from app.models.user import User, Role
 from app.models.refresh_token import RefreshToken
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
+from app.models.user import Role, User
+from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
-async def register_business_and_user(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
+
+@dataclass
+class IssuedTokens:
+    """Access token for the response body + raw refresh token for the cookie.
+
+    The raw refresh token must never be put in a JSON response body -- only
+    the route layer sees it, to set it as an httpOnly cookie.
+    """
+    access_token: str
+    refresh_token: str
+    expires_in: int
+
+    @property
+    def response(self) -> TokenResponse:
+        return TokenResponse(access_token=self.access_token, expires_in=self.expires_in)
+
+async def register_business_and_user(db: AsyncSession, data: RegisterRequest) -> IssuedTokens:
     # Check if email already exists
     stmt = select(User).where(User.email == data.email)
     result = await db.execute(stmt)
@@ -41,7 +64,7 @@ async def register_business_and_user(db: AsyncSession, data: RegisterRequest) ->
 
     return await _issue_tokens(db, user)
 
-async def authenticate_user(db: AsyncSession, data: LoginRequest) -> TokenResponse:
+async def authenticate_user(db: AsyncSession, data: LoginRequest) -> IssuedTokens:
     stmt = select(User).where(User.email == data.email, User.is_active == True)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
@@ -51,11 +74,11 @@ async def authenticate_user(db: AsyncSession, data: LoginRequest) -> TokenRespon
 
     return await _issue_tokens(db, user)
 
-async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> TokenResponse:
+async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> IssuedTokens:
     stmt = select(RefreshToken).where(
-        RefreshToken.token_hash == refresh_token_str,
+        RefreshToken.token_hash == hash_refresh_token(refresh_token_str),
         RefreshToken.is_revoked == False,
-        RefreshToken.expires_at > datetime.now(timezone.utc)
+        RefreshToken.expires_at > datetime.now(UTC)
     )
     result = await db.execute(stmt)
     token_record = result.scalar_one_or_none()
@@ -73,11 +96,12 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> TokenRespo
 
     # Revoke old refresh token (rotate)
     token_record.is_revoked = True
-    
+
     return await _issue_tokens(db, user)
 
 async def logout_user(db: AsyncSession, refresh_token_str: str) -> None:
-    stmt = select(RefreshToken).where(RefreshToken.token_hash == refresh_token_str)
+    token_hash = hash_refresh_token(refresh_token_str)
+    stmt = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
     result = await db.execute(stmt)
     token_record = result.scalar_one_or_none()
 
@@ -85,21 +109,22 @@ async def logout_user(db: AsyncSession, refresh_token_str: str) -> None:
         token_record.is_revoked = True
         await db.commit()
 
-async def _issue_tokens(db: AsyncSession, user: User) -> TokenResponse:
+async def _issue_tokens(db: AsyncSession, user: User) -> IssuedTokens:
     access_token = create_access_token(user.id, user.business_id, user.role)
     refresh_token_str = generate_refresh_token()
-    
-    # Store refresh token
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_DAYS)
+
+    # Store only a hash of the refresh token -- a DB leak must not hand out
+    # usable session tokens.
+    expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_DAYS)
     db_refresh_token = RefreshToken(
         user_id=user.id,
-        token_hash=refresh_token_str,
+        token_hash=hash_refresh_token(refresh_token_str),
         expires_at=expires_at
     )
     db.add(db_refresh_token)
     await db.commit()
 
-    return TokenResponse(
+    return IssuedTokens(
         access_token=access_token,
         refresh_token=refresh_token_str,
         expires_in=settings.JWT_EXPIRY_MINUTES * 60

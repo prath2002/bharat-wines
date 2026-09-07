@@ -24,7 +24,10 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 target_metadata = Base.metadata
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# set_main_option stores values through ConfigParser, which treats "%" as
+# interpolation syntax -- double it so a percent-encoded DB password (e.g.
+# containing "%40" for "@") round-trips correctly.
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

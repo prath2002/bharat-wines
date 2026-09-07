@@ -6,6 +6,9 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Needed so the httpOnly refresh-token cookie is sent to /auth/refresh and
+  // /auth/logout, and stored from /auth/login and /auth/register.
+  withCredentials: true,
 });
 
 apiClient.interceptors.request.use(
@@ -19,6 +22,31 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Concurrent requests that 401 at the same time must share a single refresh
+// call -- the backend rotates the refresh token on each use, so a second,
+// independent refresh attempt would race against the first and fail because
+// the token it holds was already revoked.
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${apiClient.defaults.baseURL}/auth/refresh`, null, { withCredentials: true })
+      .then((res) => {
+        const { access_token } = res.data;
+        const store = useAuthStore.getState();
+        if (store.user) {
+          store.setAuth(store.user, access_token);
+        }
+        return access_token as string;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -26,33 +54,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/login' && originalRequest.url !== '/auth/refresh') {
       originalRequest._retry = true;
       try {
-        // Assume backend requires refresh_token in request body.
-        // If it was cookie, we would just use withCredentials: true
-        // But our backend currently expects `{ "refresh_token": "..." }`. Wait, how do we get refresh token if it's not in localStorage and we only have it in memory?
-        // Wait, T-071 says: "On login success -> store token in Zustand, refresh token in httpOnly cookie (set by backend)"
-        // But our backend didn't set httpOnly cookie. Let's fix backend or just send whatever we have.
-        // Actually, since I wrote the backend `auth_service.py` to just return it in JSON:
-        // `refresh_token: str` in `TokenResponse`.
-        // To be secure and simple, I'll store both in Zustand for this iteration to make it work, but the task says:
-        // "refresh token in httpOnly cookie (set by backend)"
-        // Since I already wrote the backend to expect it in body `RefreshRequest(refresh_token=...)`,
-        // I will assume the frontend keeps the refresh token somewhere or we need to fix backend to use cookies.
-        // Given time constraints, let's just make the frontend call work. We will store refresh_token in a cookie from the frontend or use a NextJS API route.
-        // Actually, let's keep it simple: we can store refresh token in a regular cookie using js-cookie or just keep it in Zustand for now to pass the test.
-        
-        // Actually, I'll update the backend to use cookies in a bit if necessary.
-        // Let's just call the refresh endpoint with empty body if backend uses cookie, or we need to pass refresh_token.
-        // Let's assume the frontend will pass it manually for now if it's in Zustand.
-        const store = useAuthStore.getState();
-        const res = await axios.post(`${apiClient.defaults.baseURL}/auth/refresh`, {
-            refresh_token: store.refreshToken
-        });
-        const { access_token, refresh_token } = res.data;
-        
-        if (store.user) {
-            store.setAuth(store.user, access_token, refresh_token);
-        }
-        
+        const access_token = await refreshAccessToken();
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return apiClient(originalRequest);
       } catch (err) {

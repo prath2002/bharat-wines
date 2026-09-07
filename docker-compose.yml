@@ -38,9 +38,12 @@ services:
       - .env
     environment:
       - APP_ENV=dev
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/bharat_wines
+      # DATABASE_URL intentionally NOT overridden here -- it comes from .env
+      # (currently pointed at Supabase). Set it in the environment block
+      # below (or override in .env) to use the local `db` container instead.
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=supersecretkey
+      - CORS_ORIGINS=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
@@ -57,7 +60,7 @@ services:
       - .env
     environment:
       - APP_ENV=dev
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/bharat_wines
+      # DATABASE_URL intentionally NOT overridden here -- see backend service.
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
