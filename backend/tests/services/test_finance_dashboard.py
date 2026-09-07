@@ -13,7 +13,7 @@ def _settlement(amount, paid_on):
     return SimpleNamespace(amount=amount, paid_on=paid_on)
 
 def _bill(vendor=None, status=BillStatus.VERIFIED, payment_status=PaymentStatus.UNPAID,
-          total=1000.0, discount=0.0, charges=None, bill_date=None, due_date=None,
+          total=1000.0, discount=0.0, discounts=None, charges=None, bill_date=None, due_date=None,
           settlements=None, extracted_vendor_name=None, has_total_mismatch=False):
     return SimpleNamespace(
         id=uuid.uuid4(),
@@ -23,7 +23,7 @@ def _bill(vendor=None, status=BillStatus.VERIFIED, payment_status=PaymentStatus.
         status=status,
         payment_status=payment_status,
         total_amount=total,
-        discount_amount=discount,
+        discounts=discounts if discounts is not None else ([{"label": "Discount", "amount": discount}] if discount else []),
         charges=charges or [],
         bill_date=bill_date or date(2026, 7, 5),
         due_date=due_date,
@@ -64,6 +64,17 @@ def test_summary_totals_and_vendor_rows():
 
     # Draft shows up in attention rail
     assert len(summary["attention"]["drafts"]) == 1
+
+def test_summary_sums_multiple_discounts_per_bill():
+    v = _vendor("Multi Discount Co")
+    bills = [
+        _bill(vendor=v, total=9550.0, discounts=[
+            {"label": "Scheme discount", "amount": 500.0},
+            {"label": "Cash discount", "amount": 200.0},
+        ]),
+    ]
+    summary = summarize_bills(bills)
+    assert summary["totals"]["discounts"] == 700.0
 
 def test_monthly_buckets_split_billed_and_paid_dates():
     v = _vendor("Radico")

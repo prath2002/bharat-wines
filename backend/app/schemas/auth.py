@@ -1,15 +1,15 @@
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional
-import uuid
+
 
 class RegisterRequest(BaseModel):
     business_name: str
     owner_name: str
     email: EmailStr
     password: str
-    license_number: Optional[str] = None
-    address: Optional[str] = None
-    state: Optional[str] = None
+    license_number: str | None = None
+    address: str | None = None
+    state: str | None = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -17,9 +17,5 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
-
-class RefreshRequest(BaseModel):
-    refresh_token: str

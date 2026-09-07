@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: bharat_wines
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,16 +31,19 @@ services:
     build:
       context: ./backend
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend:/app
     env_file:
       - .env
     environment:
       - APP_ENV=dev
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/bharat_wines
+      # DATABASE_URL intentionally NOT overridden here -- it comes from .env
+      # (currently pointed at Supabase). Set it in the environment block
+      # below (or override in .env) to use the local `db` container instead.
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=supersecretkey
+      - CORS_ORIGINS=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
@@ -57,7 +60,7 @@ services:
       - .env
     environment:
       - APP_ENV=dev
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/bharat_wines
+      # DATABASE_URL intentionally NOT overridden here -- see backend service.
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -76,7 +79,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
     depends_on:
       - backend
     command: ["npm", "run", "dev"]

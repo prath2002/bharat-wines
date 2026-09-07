@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, Check, FileUp, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileUp, Loader2, Plus, Sparkles, X } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,8 @@ interface FormState {
   vendor_id: string;
   vendor_name_new: string;
   subtotal: string;
-  discount_amount: string;
+  discounts: { label: string; amount: string }[];
   charges: { label: string; amount: string }[];
-  total_amount: string;
   due_date: string;
   due_date_source: "VENDOR_DEFAULT" | "MANUAL" | "";
   notes: string;
@@ -41,9 +40,8 @@ const emptyForm: FormState = {
   vendor_id: "",
   vendor_name_new: "",
   subtotal: "",
-  discount_amount: "",
+  discounts: [],
   charges: [],
-  total_amount: "",
   due_date: "",
   due_date_source: "",
   notes: "",
@@ -76,16 +74,13 @@ export default function ManualBillEntryPage() {
   const recommendedDate = recommendationQuery.data?.due_date;
   const showRecommendation = !!recommendedDate && form.due_date !== recommendedDate;
 
-  const computed = useMemo(() => {
+  const grandTotal = useMemo(() => {
     const subtotal = parseFloat(form.subtotal);
     if (Number.isNaN(subtotal)) return null;
-    const discount = parseFloat(form.discount_amount) || 0;
+    const discounts = form.discounts.reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
     const charges = form.charges.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-    return subtotal - discount + charges;
-  }, [form.subtotal, form.discount_amount, form.charges]);
-
-  const total = parseFloat(form.total_amount);
-  const hasMismatch = computed !== null && !Number.isNaN(total) && Math.abs(computed - total) > 1;
+    return subtotal - discounts + charges;
+  }, [form.subtotal, form.discounts, form.charges]);
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -94,12 +89,13 @@ export default function ManualBillEntryPage() {
         bill_date: form.bill_date || null,
         vendor_id: form.vendor_id || null,
         vendor_name: !form.vendor_id ? form.vendor_name_new || null : null,
-        subtotal: form.subtotal ? parseFloat(form.subtotal) : null,
-        discount_amount: parseFloat(form.discount_amount) || 0,
+        subtotal: parseFloat(form.subtotal),
+        discounts: form.discounts
+          .filter((d) => d.label || d.amount)
+          .map((d): ChargeItem => ({ label: d.label || "Discount", amount: parseFloat(d.amount) || 0 })),
         charges: form.charges
           .filter((c) => c.label || c.amount)
           .map((c): ChargeItem => ({ label: c.label || "Charge", amount: parseFloat(c.amount) || 0 })),
-        total_amount: parseFloat(form.total_amount),
         due_date: form.due_date || null,
         due_date_source: form.due_date_source || null,
         notes: form.notes || null,
@@ -112,8 +108,7 @@ export default function ManualBillEntryPage() {
 
   if (!canReview) return null;
 
-  const canSubmit =
-    !!form.total_amount && parseFloat(form.total_amount) > 0 && !hasMismatch && !createMutation.isPending;
+  const canSubmit = !!form.subtotal && parseFloat(form.subtotal) > 0 && !createMutation.isPending;
 
   return (
     <motion.div
@@ -180,17 +175,50 @@ export default function ManualBillEntryPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="subtotal">Subtotal (₹)</Label>
-              <Input id="subtotal" type="number" inputMode="decimal" value={form.subtotal}
-                onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="discount">Discount (₹)</Label>
-              <Input id="discount" type="number" inputMode="decimal" value={form.discount_amount}
-                onChange={(e) => setForm({ ...form, discount_amount: e.target.value })} />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="subtotal">Subtotal (₹)</Label>
+            <Input id="subtotal" type="number" inputMode="decimal" value={form.subtotal}
+              onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Discounts</Label>
+            {form.discounts.length === 0 && (
+              <p className="text-sm text-muted-foreground">No discounts on this bill.</p>
+            )}
+            {form.discounts.map((discount, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  placeholder="Label (Scheme, Cash discount…)"
+                  value={discount.label}
+                  onChange={(e) => {
+                    const discounts = [...form.discounts];
+                    discounts[i] = { ...discounts[i], label: e.target.value };
+                    setForm({ ...form, discounts });
+                  }}
+                />
+                <Input
+                  className="w-32"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="₹"
+                  value={discount.amount}
+                  onChange={(e) => {
+                    const discounts = [...form.discounts];
+                    discounts[i] = { ...discounts[i], amount: e.target.value };
+                    setForm({ ...form, discounts });
+                  }}
+                />
+                <Button variant="ghost" size="icon" aria-label="Remove discount"
+                  onClick={() => setForm({ ...form, discounts: form.discounts.filter((_, j) => j !== i) })}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm"
+              onClick={() => setForm({ ...form, discounts: [...form.discounts, { label: "", amount: "" }] })}>
+              <Plus className="h-4 w-4 mr-1" /> Add discount
+            </Button>
           </div>
 
           <div className="space-y-2">
@@ -235,22 +263,15 @@ export default function ManualBillEntryPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="total">Grand total (₹)</Label>
-            <Input id="total" type="number" inputMode="decimal" value={form.total_amount} className="font-semibold"
-              onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
+            <Input
+              id="total"
+              type="number"
+              value={grandTotal !== null ? grandTotal.toFixed(2) : ""}
+              className="font-semibold"
+              disabled
+              readOnly
+            />
           </div>
-
-          {computed !== null && (
-            hasMismatch ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex gap-2">
-                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>Grand total doesn&apos;t match subtotal − discount + charges. Fix the amounts to continue.</span>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Amounts add up
-              </p>
-            )
-          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="due">Due date</Label>

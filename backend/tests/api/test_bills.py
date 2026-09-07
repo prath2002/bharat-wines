@@ -21,7 +21,7 @@ def test_limited_projection_has_no_financial_fields():
     # The staff-facing schema must not leak amounts or vendor info
     fields = set(BillLimitedResponse.model_fields.keys())
     assert fields == {"id", "file_url", "status", "created_at"}
-    forbidden = {"total_amount", "subtotal", "discount_amount", "charges",
+    forbidden = {"total_amount", "subtotal", "discounts", "charges",
                  "vendor_id", "vendor_name", "payment_status", "amount_paid"}
     assert not (fields & forbidden)
     # ...while the full projection has them

@@ -36,6 +36,11 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Must be the exact production frontend origin(s) (comma-separated, no
+      # trailing slash) -- required for the cookie-based refresh token to work
+      # cross-site, e.g. https://bharat-wines.vercel.app
+      - key: CORS_ORIGINS
+        value: placeholder-update-with-frontend-url-in-dashboard
       # AI Providers
       - key: OCR_PROVIDER
         value: vision

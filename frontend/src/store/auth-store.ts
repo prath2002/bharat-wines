@@ -5,30 +5,30 @@ import { User } from '@/types/auth';
 interface AuthState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: User, accessToken: string) => void;
   clearAuth: () => void;
 }
 
+// The refresh token lives only in an httpOnly cookie set by the backend --
+// it is never readable by JS, so it has no place in this store.
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
-      setAuth: (user, accessToken, refreshToken) => {
+      setAuth: (user, accessToken) => {
         if (typeof window !== "undefined") {
             localStorage.setItem("token", accessToken);
         }
-        set({ user, accessToken, refreshToken, isAuthenticated: true });
+        set({ user, accessToken, isAuthenticated: true });
       },
       clearAuth: () => {
         if (typeof window !== "undefined") {
             localStorage.removeItem("token");
         }
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+        set({ user: null, accessToken: null, isAuthenticated: false });
       },
     }),
     {

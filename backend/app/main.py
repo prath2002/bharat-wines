@@ -1,9 +1,12 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
 
-from app.integrations.redis import init_redis, close_redis
+from app.core.config import settings
+from app.integrations.redis import close_redis, init_redis
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,11 +22,34 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.api.v1 import auth, audit_logs, products, barcodes, movements, inventory, reports, imports, unknown_barcodes, tp, mrp, scm, users, bills, vendors, payment_schedules, payment_approvals, documents, finance
+from app.api.v1 import (
+    audit_logs,
+    auth,
+    barcodes,
+    bills,
+    documents,
+    finance,
+    imports,
+    inventory,
+    movements,
+    mrp,
+    payment_approvals,
+    payment_schedules,
+    products,
+    reports,
+    scm,
+    tp,
+    unknown_barcodes,
+    users,
+    vendors,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # TODO: Restrict in production
+    # Must be an explicit origin allowlist, not "*" -- the API sets a
+    # credentialed (cookie-based) refresh token, and browsers reject
+    # wildcard origins combined with allow_credentials.
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,6 +76,7 @@ app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
 app.include_router(finance.router, prefix="/api/v1/finance", tags=["Finance Views"])
 
 import os
+
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

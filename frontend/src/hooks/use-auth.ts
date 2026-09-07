@@ -37,7 +37,6 @@ export interface RegisterRequest {
 
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
   token_type: string;
   expires_in: number;
   user?: User;
@@ -54,7 +53,7 @@ export const useAuth = () => {
     },
     onSuccess: (data, variables) => {
       const user = decodeUser(data.access_token, variables.email);
-      setAuth(user, data.access_token, data.refresh_token);
+      setAuth(user, data.access_token);
       router.push('/');
     },
   });
@@ -66,17 +65,15 @@ export const useAuth = () => {
     },
     onSuccess: (data, variables) => {
       const user = decodeUser(data.access_token, variables.email);
-      setAuth(user, data.access_token, data.refresh_token);
+      setAuth(user, data.access_token);
       router.push('/');
     },
   });
 
   const logout = async () => {
     try {
-      const store = useAuthStore.getState();
-      if (store.refreshToken) {
-        await apiClient.post('/auth/logout', { refresh_token: store.refreshToken });
-      }
+      // The refresh-token cookie is sent automatically (withCredentials).
+      await apiClient.post('/auth/logout');
     } catch (e) {
       console.error('Logout error', e);
     } finally {

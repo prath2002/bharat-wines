@@ -40,7 +40,8 @@ class Bill(TenantModel):
     extracted_vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     subtotal: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
-    discount_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, server_default="0")
+    # List of {"label": str, "amount": float}, e.g. scheme discount, cash discount.
+    discounts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     # List of {"label": str, "amount": float} e.g. freight, TCS, bardana
     charges: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     total_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)

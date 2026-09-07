@@ -203,8 +203,6 @@ async def update_bill(
     current_user: User = Depends(require_permissions("bills.review"))
 ):
     data = payload.model_dump(exclude_unset=True)
-    if "charges" in data and data["charges"] is not None:
-        data["charges"] = [c if isinstance(c, dict) else c for c in data["charges"]]
     try:
         bill = await bill_service.update_bill_fields(bill_id, data, db, current_user.business_id)
     except ValueError as e:

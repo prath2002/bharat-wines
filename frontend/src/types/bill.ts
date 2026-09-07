@@ -37,7 +37,7 @@ export interface Bill {
   bill_number?: string | null;
   bill_date?: string | null;
   subtotal?: number | null;
-  discount_amount: number;
+  discounts: ChargeItem[];
   charges?: ChargeItem[] | null;
   total_amount?: number | null;
   has_total_mismatch: boolean;
@@ -53,6 +53,7 @@ export interface Bill {
 
 export interface BillDetail extends Bill {
   ocr_raw_text?: string | null;
+  extracted_data?: ({ total_amount?: number | null } & Record<string, unknown>) | null;
   settlements: BillSettlement[];
 }
 

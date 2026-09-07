@@ -1,10 +1,13 @@
+import hashlib
 import uuid
+from datetime import UTC, datetime, timedelta
+
 import bcrypt
 import jwt
-from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
 from app.models.user import Role
+
 
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt(rounds=12)
@@ -14,7 +17,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 def create_access_token(user_id: uuid.UUID, business_id: uuid.UUID, role: Role) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRY_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.JWT_EXPIRY_MINUTES)
     to_encode = {
         "sub": str(user_id),
         "business_id": str(business_id),
@@ -30,3 +33,9 @@ def decode_access_token(token: str) -> dict:
 def generate_refresh_token() -> str:
     import secrets
     return secrets.token_urlsafe(64)
+
+def hash_refresh_token(token: str) -> str:
+    # Refresh tokens are high-entropy (512 bits) random strings, not user-chosen
+    # secrets, so a fast deterministic hash (rather than bcrypt) is appropriate
+    # here and lets us look them up by exact match without storing them raw.
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
