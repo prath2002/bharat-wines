@@ -64,6 +64,9 @@ Thumbs.db
 # Docker
 .docker/
 
+# Superpowers scratch state (progress ledgers, task briefs/reports)
+.superpowers/
+
 # Logs and generic
 *.log
 
