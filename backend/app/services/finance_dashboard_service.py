@@ -113,7 +113,7 @@ def summarize_bills(bills, date_from: date | None = None, date_to: date | None =
 
         if bill_in_range:
             totals["billed"] += total
-            totals["discounts"] += _d(bill.discount_amount)
+            totals["discounts"] += sum(_d(d.get("amount", 0)) for d in (bill.discounts or []))
             totals["charges"] += sum(_d(c.get("amount", 0)) for c in (bill.charges or []))
             totals["bill_count"] += 1
 

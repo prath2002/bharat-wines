@@ -23,7 +23,7 @@ def _bill(vendor=None, status=BillStatus.VERIFIED, payment_status=PaymentStatus.
         status=status,
         payment_status=payment_status,
         total_amount=total,
-        discount_amount=discount,
+        discounts=[{"label": "Discount", "amount": discount}] if discount else [],
         charges=charges or [],
         bill_date=bill_date or date(2026, 7, 5),
         due_date=due_date,
