@@ -41,9 +41,8 @@ export interface BillUpdatePayload {
   vendor_id?: string | null;
   extracted_vendor_name?: string | null;
   subtotal?: number | null;
-  discount_amount?: number;
+  discounts?: ChargeItem[];
   charges?: ChargeItem[];
-  total_amount?: number | null;
   due_date?: string | null;
   due_date_source?: DueDateSource | null;
   notes?: string | null;
@@ -86,10 +85,9 @@ export interface BillManualCreatePayload {
   bill_date?: string | null;
   vendor_id?: string | null;
   vendor_name?: string | null;
-  subtotal?: number | null;
-  discount_amount?: number;
+  subtotal: number;
+  discounts?: ChargeItem[];
   charges?: ChargeItem[];
-  total_amount: number;
   due_date?: string | null;
   due_date_source?: DueDateSource | null;
   notes?: string | null;
