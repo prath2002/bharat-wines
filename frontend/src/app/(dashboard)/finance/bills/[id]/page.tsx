@@ -54,9 +54,8 @@ interface FormState {
   vendor_id: string;
   vendor_name_new: string;
   subtotal: string;
-  discount_amount: string;
+  discounts: { label: string; amount: string }[];
   charges: { label: string; amount: string }[];
-  total_amount: string;
   due_date: string;
   notes: string;
 }
@@ -98,37 +97,39 @@ export default function BillReviewPage() {
       vendor_id: bill.vendor_id ?? "",
       vendor_name_new: "",
       subtotal: bill.subtotal != null ? String(bill.subtotal) : "",
-      discount_amount: String(bill.discount_amount ?? 0),
+      discounts: (bill.discounts ?? []).map((d) => ({ label: d.label, amount: String(d.amount) })),
       charges: (bill.charges ?? []).map((c) => ({ label: c.label, amount: String(c.amount) })),
-      total_amount: bill.total_amount != null ? String(bill.total_amount) : "",
       due_date: bill.due_date ?? "",
       notes: bill.notes ?? "",
     });
   }
 
-  const computed = useMemo(() => {
+  const grandTotal = useMemo(() => {
     if (!form) return null;
     const subtotal = parseFloat(form.subtotal);
     if (Number.isNaN(subtotal)) return null;
-    const discount = parseFloat(form.discount_amount) || 0;
+    const discounts = form.discounts.reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0);
     const charges = form.charges.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-    return subtotal - discount + charges;
+    return subtotal - discounts + charges;
   }, [form]);
 
-  const total = form ? parseFloat(form.total_amount) : NaN;
-  const hasMismatch =
-    computed !== null && !Number.isNaN(total) && Math.abs(computed - total) > 1;
+  // The AI's originally-extracted total is a non-blocking reference only, to
+  // flag a possible OCR misread -- it never blocks saving or verifying.
+  const extractedTotal = bill?.extracted_data?.total_amount ?? null;
+  const showExtractedHint =
+    typeof extractedTotal === "number" && grandTotal !== null && Math.abs(extractedTotal - grandTotal) > 1;
 
   const buildPayload = () => ({
     bill_number: form!.bill_number || null,
     bill_date: form!.bill_date || null,
     vendor_id: form!.vendor_id || null,
     subtotal: form!.subtotal ? parseFloat(form!.subtotal) : null,
-    discount_amount: parseFloat(form!.discount_amount) || 0,
+    discounts: form!.discounts
+      .filter((d) => d.label || d.amount)
+      .map((d): ChargeItem => ({ label: d.label || "Discount", amount: parseFloat(d.amount) || 0 })),
     charges: form!.charges
       .filter((c) => c.label || c.amount)
       .map((c): ChargeItem => ({ label: c.label || "Charge", amount: parseFloat(c.amount) || 0 })),
-    total_amount: form!.total_amount ? parseFloat(form!.total_amount) : null,
     due_date: form!.due_date || null,
     notes: form!.notes || null,
   });
@@ -298,17 +299,60 @@ export default function BillReviewPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="subtotal">Subtotal (₹)</Label>
-                    <Input id="subtotal" type="number" inputMode="decimal" value={form.subtotal} disabled={!editable}
-                      onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="discount">Discount (₹)</Label>
-                    <Input id="discount" type="number" inputMode="decimal" value={form.discount_amount} disabled={!editable}
-                      onChange={(e) => setForm({ ...form, discount_amount: e.target.value })} />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="subtotal">Subtotal (₹)</Label>
+                  <Input id="subtotal" type="number" inputMode="decimal" value={form.subtotal} disabled={!editable}
+                    onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Discounts</Label>
+                  {form.discounts.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No discounts on this bill.</p>
+                  )}
+                  {form.discounts.map((discount, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input
+                        placeholder="Label (Scheme, Cash discount…)"
+                        value={discount.label}
+                        disabled={!editable}
+                        onChange={(e) => {
+                          const discounts = [...form.discounts];
+                          discounts[i] = { ...discounts[i], label: e.target.value };
+                          setForm({ ...form, discounts });
+                        }}
+                      />
+                      <Input
+                        className="w-32"
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="₹"
+                        value={discount.amount}
+                        disabled={!editable}
+                        onChange={(e) => {
+                          const discounts = [...form.discounts];
+                          discounts[i] = { ...discounts[i], amount: e.target.value };
+                          setForm({ ...form, discounts });
+                        }}
+                      />
+                      {editable && (
+                        <Button
+                          variant="ghost" size="icon" aria-label="Remove discount"
+                          onClick={() => setForm({ ...form, discounts: form.discounts.filter((_, j) => j !== i) })}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {editable && (
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => setForm({ ...form, discounts: [...form.discounts, { label: "", amount: "" }] })}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add discount
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -364,9 +408,14 @@ export default function BillReviewPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="total">Grand total (₹)</Label>
-                    <Input id="total" type="number" inputMode="decimal" value={form.total_amount} disabled={!editable}
+                    <Input
+                      id="total"
+                      type="number"
+                      value={grandTotal !== null ? grandTotal.toFixed(2) : ""}
                       className="font-semibold"
-                      onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
+                      disabled
+                      readOnly
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="due">Due date</Label>
@@ -375,21 +424,11 @@ export default function BillReviewPage() {
                   </div>
                 </div>
 
-                {computed !== null && (
-                  hasMismatch ? (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex gap-2">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>
-                        Grand total {formatINRPrecise(total)} doesn&apos;t match the computed{" "}
-                        <strong>{formatINRPrecise(computed)}</strong> (subtotal − discount + charges). Fix the amounts before verifying.
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      Amounts add up: {formatINRPrecise(computed)}
-                    </p>
-                  )
+                {showExtractedHint && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    AI originally read {formatINRPrecise(extractedTotal!)} — worth a second look.
+                  </p>
                 )}
 
                 <div className="space-y-1.5">
@@ -407,13 +446,9 @@ export default function BillReviewPage() {
                     </Button>
                     <Button
                       onClick={() => verifyMutation.mutate()}
-                      disabled={verifyMutation.isPending || hasMismatch || (!form.vendor_id && !form.vendor_name_new)}
+                      disabled={verifyMutation.isPending || (!form.vendor_id && !form.vendor_name_new)}
                       className="bg-gradient-to-r from-primary to-primary/80"
-                      title={
-                        hasMismatch ? "Fix the total mismatch first"
-                        : !form.vendor_id && !form.vendor_name_new ? "Pick or create a company first"
-                        : undefined
-                      }
+                      title={!form.vendor_id && !form.vendor_name_new ? "Pick or create a company first" : undefined}
                     >
                       {verifyMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       <Check className="h-4 w-4 mr-1" /> Verify bill
