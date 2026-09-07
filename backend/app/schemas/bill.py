@@ -48,9 +48,8 @@ class BillUpdateRequest(BaseModel):
     vendor_id: uuid.UUID | None = None
     extracted_vendor_name: str | None = None
     subtotal: float | None = None
-    discount_amount: float | None = None
+    discounts: list[ChargeItem] | None = None
     charges: list[ChargeItem] | None = None
-    total_amount: float | None = None
     due_date: date | None = None
     due_date_source: DueDateSource | None = None
     notes: str | None = None
@@ -63,19 +62,18 @@ class BillManualCreateRequest(BaseModel):
     bill_date: date | None = None
     vendor_id: uuid.UUID | None = None
     vendor_name: str | None = None
-    subtotal: float | None = None
-    discount_amount: float = 0
+    subtotal: float
+    discounts: list[ChargeItem] = []
     charges: list[ChargeItem] | None = None
-    total_amount: float
     due_date: date | None = None
     due_date_source: DueDateSource | None = None
     notes: str | None = None
 
-    @field_validator("total_amount")
+    @field_validator("subtotal")
     @classmethod
-    def total_amount_positive(cls, v: float) -> float:
+    def subtotal_positive(cls, v: float) -> float:
         if v <= 0:
-            raise ValueError("total_amount must be positive")
+            raise ValueError("subtotal must be positive")
         return v
 
 class BillResponse(BaseModel):
@@ -91,7 +89,7 @@ class BillResponse(BaseModel):
     bill_number: str | None = None
     bill_date: date | None = None
     subtotal: float | None = None
-    discount_amount: float = 0
+    discounts: list[ChargeItem] = []
     charges: list[ChargeItem] | None = None
     total_amount: float | None = None
     has_total_mismatch: bool = False
@@ -106,6 +104,7 @@ class BillResponse(BaseModel):
 
 class BillDetailResponse(BillResponse):
     ocr_raw_text: str | None = None
+    extracted_data: dict | None = None
     settlements: list[SettlementResponse] = []
 
 class BillLimitedResponse(BaseModel):
