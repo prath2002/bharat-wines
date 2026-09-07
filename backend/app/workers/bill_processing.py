@@ -24,7 +24,7 @@ def normalize_vendor_name(name: str) -> str:
     n = re.sub(r"\b(pvt|private|ltd|limited|llp|co|company|corp|corporation)\b", "", n)
     return re.sub(r"\s+", " ", n).strip()
 
-def compute_total_check(subtotal, discount_amount, charges, total_amount):
+def compute_total_check(subtotal, discounts, charges, total_amount):
     """
     Returns (computed_total, has_mismatch).
     If subtotal is missing, no computation is possible -> (None, False).
@@ -32,8 +32,9 @@ def compute_total_check(subtotal, discount_amount, charges, total_amount):
     """
     if subtotal is None:
         return None, False
+    discounts_sum = sum(Decimal(str(d.get("amount", 0))) for d in (discounts or []))
     charges_sum = sum(Decimal(str(c.get("amount", 0))) for c in (charges or []))
-    computed = Decimal(str(subtotal)) - Decimal(str(discount_amount or 0)) + charges_sum
+    computed = Decimal(str(subtotal)) - discounts_sum + charges_sum
     if total_amount is None:
         return computed, False
     mismatch = abs(computed - Decimal(str(total_amount))) > Decimal(str(TOTAL_MISMATCH_TOLERANCE))
@@ -85,8 +86,11 @@ async def process_bill_async(bill_id: str, file_url: str, business_id: str):
 
             # 4. Persist extracted fields
             charges = [c.model_dump() for c in extraction.charges]
+            # The AI extraction interface still reads a single discount off the
+            # document; wrap it into the new discounts-list shape.
+            discounts = [{"label": "Discount", "amount": extraction.discount_amount}] if extraction.discount_amount else []
             computed, mismatch = compute_total_check(
-                extraction.subtotal, extraction.discount_amount, charges, extraction.total_amount
+                extraction.subtotal, discounts, charges, extraction.total_amount
             )
 
             bill.bill_number = extraction.bill_number
@@ -94,7 +98,7 @@ async def process_bill_async(bill_id: str, file_url: str, business_id: str):
             bill.extracted_vendor_name = extraction.vendor_name
             bill.vendor_id = vendor_id
             bill.subtotal = extraction.subtotal
-            bill.discount_amount = extraction.discount_amount or 0
+            bill.discounts = discounts
             bill.charges = charges
             bill.total_amount = extraction.total_amount if extraction.total_amount is not None else (
                 float(computed) if computed is not None else None

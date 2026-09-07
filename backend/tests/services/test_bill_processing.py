@@ -15,24 +15,33 @@ def test_normalize_vendor_name_strips_suffixes():
     assert normalize_vendor_name("") == ""
 
 def test_compute_total_check_consistent():
-    computed, mismatch = compute_total_check(125000.0, 3500.0, [{"amount": 1200.0}, {"amount": 250.0}], 122950.0)
+    computed, mismatch = compute_total_check(
+        125000.0, [{"amount": 3500.0}], [{"amount": 1200.0}, {"amount": 250.0}], 122950.0
+    )
+    assert computed == Decimal("122950.0")
+    assert mismatch is False
+
+def test_compute_total_check_multiple_discounts():
+    computed, mismatch = compute_total_check(
+        125000.0, [{"amount": 2000.0}, {"amount": 1500.0}], [{"amount": 1200.0}, {"amount": 250.0}], 122950.0
+    )
     assert computed == Decimal("122950.0")
     assert mismatch is False
 
 def test_compute_total_check_mismatch():
-    _, mismatch = compute_total_check(100000.0, 0.0, [], 98000.0)
+    _, mismatch = compute_total_check(100000.0, [], [], 98000.0)
     assert mismatch is True
 
 def test_compute_total_check_roundoff_tolerated():
-    _, mismatch = compute_total_check(1000.6, 0.0, [], 1000.0)
+    _, mismatch = compute_total_check(1000.6, [], [], 1000.0)
     assert mismatch is False
 
 def test_compute_total_check_missing_subtotal():
-    computed, mismatch = compute_total_check(None, 0.0, [], 5000.0)
+    computed, mismatch = compute_total_check(None, [], [], 5000.0)
     assert computed is None and mismatch is False
 
 def test_compute_total_check_missing_total_uses_computed():
-    computed, mismatch = compute_total_check(5000.0, 500.0, [{"amount": 100.0}], None)
+    computed, mismatch = compute_total_check(5000.0, [{"amount": 500.0}], [{"amount": 100.0}], None)
     assert computed == Decimal("4600.0") and mismatch is False
 
 def test_match_vendor_fuzzy_hit_and_miss():
