@@ -1,7 +1,13 @@
 from datetime import date
 
 from app.models.bill import Bill, PaymentStatus
-from app.services.bill_service import EDITABLE_FIELDS, derive_payment_status, due_date_from_terms, recompute_total
+from app.services.bill_service import (
+    EDITABLE_FIELDS,
+    derive_payment_status,
+    due_date_from_terms,
+    normalize_editable_payload,
+    recompute_total,
+)
 
 
 class FakeSettlement:
@@ -63,3 +69,15 @@ def test_editable_fields_no_longer_includes_total_amount_or_old_discount_field()
     assert "total_amount" not in EDITABLE_FIELDS
     assert "discount_amount" not in EDITABLE_FIELDS
     assert "discounts" in EDITABLE_FIELDS
+
+def test_normalize_editable_payload_coerces_null_discounts_and_charges_to_empty_list():
+    payload = {"subtotal": 1000.0, "discounts": None, "charges": None}
+    assert normalize_editable_payload(payload) == {"subtotal": 1000.0, "discounts": [], "charges": []}
+
+def test_normalize_editable_payload_leaves_provided_lists_untouched():
+    payload = {"discounts": [{"label": "Scheme", "amount": 100.0}]}
+    assert normalize_editable_payload(payload) == {"discounts": [{"label": "Scheme", "amount": 100.0}]}
+
+def test_normalize_editable_payload_ignores_fields_not_present():
+    payload = {"notes": "hello"}
+    assert normalize_editable_payload(payload) == {"notes": "hello"}

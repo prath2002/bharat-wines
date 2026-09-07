@@ -19,6 +19,23 @@ EDITABLE_FIELDS = {"bill_number", "bill_date", "vendor_id", "subtotal", "discoun
                    "charges", "due_date", "due_date_source", "notes",
                    "extracted_vendor_name"}
 
+def normalize_editable_payload(payload: dict) -> dict:
+    """Coerce an explicit JSON `null` for list-shaped editable fields into `[]`.
+
+    `discounts`/`charges` are optional on the request schemas (so we can tell
+    "not provided" from "provided") but non-optional on `BillResponse`. An
+    explicit `null` survives `model_dump(exclude_unset=True)` and, applied
+    as-is, writes SQL NULL into the column -- which then fails Pydantic
+    validation on every subsequent read of that bill (GET by id, the PUT's
+    own response, and GET /bills for the whole tenant). Normalize before it
+    ever reaches the model.
+    """
+    normalized = dict(payload)
+    for field in ("discounts", "charges"):
+        if field in normalized and normalized[field] is None:
+            normalized[field] = []
+    return normalized
+
 def recompute_total(bill: Bill) -> None:
     """Grand total is always derived from subtotal - discounts + charges --
     never client-supplied."""
@@ -69,6 +86,7 @@ async def update_bill_fields(bill_id: uuid.UUID, payload: dict, db: AsyncSession
     if bill.status not in (BillStatus.DRAFT, BillStatus.VERIFIED):
         raise ValueError(f"Cannot edit a bill in {bill.status.name} status")
 
+    payload = normalize_editable_payload(payload)
     for field in EDITABLE_FIELDS & payload.keys():
         setattr(bill, field, payload[field])
 
@@ -119,6 +137,7 @@ async def create_manual_bill(
     )
 
     vendor_name = payload.pop("vendor_name", None)
+    payload = normalize_editable_payload(payload)
     for field in EDITABLE_FIELDS & payload.keys():
         setattr(bill, field, payload[field])
 

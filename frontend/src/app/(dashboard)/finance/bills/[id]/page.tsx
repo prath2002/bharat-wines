@@ -446,9 +446,15 @@ export default function BillReviewPage() {
                     </Button>
                     <Button
                       onClick={() => verifyMutation.mutate()}
-                      disabled={verifyMutation.isPending || (!form.vendor_id && !form.vendor_name_new)}
+                      disabled={
+                        verifyMutation.isPending || grandTotal === null || (!form.vendor_id && !form.vendor_name_new)
+                      }
                       className="bg-gradient-to-r from-primary to-primary/80"
-                      title={!form.vendor_id && !form.vendor_name_new ? "Pick or create a company first" : undefined}
+                      title={
+                        grandTotal === null ? "Enter a subtotal first"
+                        : !form.vendor_id && !form.vendor_name_new ? "Pick or create a company first"
+                        : undefined
+                      }
                     >
                       {verifyMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       <Check className="h-4 w-4 mr-1" /> Verify bill
