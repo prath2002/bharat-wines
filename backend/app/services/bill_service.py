@@ -11,14 +11,23 @@ from app.models.bill_settlement import BillSettlement
 from app.models.vendor import Vendor
 from app.services.file_service import upload_file
 from app.workers.bill_processing import (
-    compute_total_check,
     normalize_vendor_name,
     process_bill_task,
 )
 
-EDITABLE_FIELDS = {"bill_number", "bill_date", "vendor_id", "subtotal", "discount_amount",
-                   "charges", "total_amount", "due_date", "due_date_source", "notes",
+EDITABLE_FIELDS = {"bill_number", "bill_date", "vendor_id", "subtotal", "discounts",
+                   "charges", "due_date", "due_date_source", "notes",
                    "extracted_vendor_name"}
+
+def recompute_total(bill: Bill) -> None:
+    """Grand total is always derived from subtotal - discounts + charges --
+    never client-supplied."""
+    if bill.subtotal is None:
+        bill.total_amount = None
+        return
+    discounts_sum = sum(Decimal(str(d.get("amount", 0))) for d in (bill.discounts or []))
+    charges_sum = sum(Decimal(str(c.get("amount", 0))) for c in (bill.charges or []))
+    bill.total_amount = float(Decimal(str(bill.subtotal)) - discounts_sum + charges_sum)
 
 def derive_payment_status(total_amount, settlements: list) -> PaymentStatus:
     paid = sum(Decimal(str(s.amount)) for s in settlements)
@@ -63,8 +72,8 @@ async def update_bill_fields(bill_id: uuid.UUID, payload: dict, db: AsyncSession
     for field in EDITABLE_FIELDS & payload.keys():
         setattr(bill, field, payload[field])
 
-    _, mismatch = compute_total_check(bill.subtotal, bill.discount_amount, bill.charges, bill.total_amount)
-    bill.has_total_mismatch = mismatch
+    recompute_total(bill)
+    bill.has_total_mismatch = False
     # Total may have changed; re-derive payment status
     bill.payment_status = derive_payment_status(bill.total_amount, bill.settlements)
 
@@ -120,10 +129,8 @@ async def create_manual_bill(
     if not bill.vendor_id:
         raise ValueError("Bill must have a vendor")
 
-    _, mismatch = compute_total_check(bill.subtotal, bill.discount_amount, bill.charges, bill.total_amount)
-    bill.has_total_mismatch = mismatch
-    if mismatch:
-        raise ValueError("Extracted total does not match computed total; fix the amounts before saving")
+    recompute_total(bill)
+    bill.has_total_mismatch = False
 
     bill.status = BillStatus.VERIFIED
     bill.verified_by = user_id
